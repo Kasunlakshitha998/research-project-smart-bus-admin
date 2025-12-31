@@ -23,8 +23,3 @@ const db = admin.firestore();
 
 // Export the firestore instance
 module.exports = db;
-
-// Note: If you still need the old MySQL pool for migration, you can export it temporarily
-// const mysql = require('mysql2');
-// const pool = mysql.createPool({ ... });
-// module.exports = { db, pool: pool.promise() };
