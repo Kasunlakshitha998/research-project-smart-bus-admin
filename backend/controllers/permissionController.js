@@ -1,10 +1,19 @@
-const db = require('../config/db');
+const RoleService = require("../services/roleService");
 
-exports.getAllPermissions = async (req, res) => {
-    try {
-        const [permissions] = await db.query('SELECT * FROM permissions');
-        res.json(permissions);
-    } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
-    }
+/**
+ * Permission Controller
+ * Simple controller to fetch master permission list.
+ */
+
+/**
+ * Get all registered system permissions.
+ */
+exports.getAllPermissions = async (req, res, next) => {
+  try {
+    const permissions = await RoleService.getAllPermissions();
+    // Frontend expects the array directly
+    res.json(permissions);
+  } catch (error) {
+    next(error);
+  }
 };

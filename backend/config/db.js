@@ -1,16 +1,30 @@
-const mysql = require('mysql2');
-const dotenv = require('dotenv');
+const admin = require("firebase-admin");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
-const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+// Use environment variables for Firebase configuration
+// This allows avoiding storing the serviceAccount.json file directly in the repo
+const firebaseConfig = {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  privateKey: process.env.FIREBASE_PRIVATE_KEY
+    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+    : undefined,
+};
 
-module.exports = pool.promise();
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(firebaseConfig),
+  });
+}
+
+const db = admin.firestore();
+
+// Export the firestore instance
+module.exports = db;
+
+// Note: If you still need the old MySQL pool for migration, you can export it temporarily
+// const mysql = require('mysql2');
+// const pool = mysql.createPool({ ... });
+// module.exports = { db, pool: pool.promise() };
