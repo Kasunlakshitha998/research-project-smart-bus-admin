@@ -11,7 +11,6 @@ const RouteService = require("../services/routeService");
 exports.getAllRoutes = async (req, res, next) => {
   try {
     const routes = await RouteService.getAllRoutes();
-    // Frontend expects the array directly
     res.json(routes);
   } catch (error) {
     next(error);

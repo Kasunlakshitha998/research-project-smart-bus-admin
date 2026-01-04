@@ -11,7 +11,6 @@ const BusService = require("../services/busService");
 exports.getAllBuses = async (req, res, next) => {
   try {
     const buses = await BusService.getAllBuses();
-    // Frontend expects the array directly
     res.json(buses);
   } catch (error) {
     next(error);

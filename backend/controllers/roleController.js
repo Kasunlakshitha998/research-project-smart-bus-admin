@@ -11,7 +11,6 @@ const RoleService = require("../services/roleService");
 exports.getAllRoles = async (req, res, next) => {
   try {
     const roles = await RoleService.getAllRoles();
-    // Frontend expects the array directly
     res.json(roles);
   } catch (error) {
     next(error);
