@@ -4,7 +4,6 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 // Use environment variables for Firebase configuration
-// This allows avoiding storing the serviceAccount.json file directly in the repo
 const firebaseConfig = {
   projectId: process.env.FIREBASE_PROJECT_ID,
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL,

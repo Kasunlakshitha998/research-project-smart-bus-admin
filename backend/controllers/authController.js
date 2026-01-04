@@ -39,7 +39,6 @@ exports.login = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     const user = await AuthService.getMe(req.user.id);
-    // Frontend expects the user object directly
     res.json(user);
   } catch (error) {
     next(error);
