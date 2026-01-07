@@ -2,6 +2,95 @@
 
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Sidebar Active Curve Effect */
+.active-curve {
+  position: relative;
+  background-color: #f8fafc !important;
+  color: #08284d !important;
+  border-radius: 40px 0 0 40px !important;
+  margin-left: 15px !important;
+  margin-right: 0 !important;
+  width: calc(100% - 15px) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.active-curve::before,
+.active-curve::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  background-color: transparent;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.active-curve::before {
+  top: -40px;
+  border-bottom-right-radius: 25px;
+  box-shadow: 0 25px 0 0 #f8fafc;
+}
+
+.active-curve::after {
+  bottom: -40px;
+  border-top-right-radius: 25px;
+  box-shadow: 0 -25px 0 0 #f8fafc;
+}
+
+/* Ensure active text and icon stay visible inside the curve */
+.active-curve span {
+  color: #08284d !important;
+  font-weight: 800 !important;
+}
+
+.active-curve .lucide {
+  color: #2563eb !important; /* Brighter blue for active icon */
+}
+
+/* Pulse Animation for Live Status */
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.pulse-live {
+  animation: pulse 2s infinite;
+  border-radius: 50%;
+}
+
+/* Map Leaflet Overrides */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 1 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-popup-tip {
+  display: none;
 }

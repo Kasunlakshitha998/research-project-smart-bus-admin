@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -17,6 +17,7 @@ import predictionService from "../services/predictionService";
 import routeService from "../services/routeService";
 import Loading from "../components/Loading";
 import busService from "../services/busService";
+import Pagination from "../components/Pagination";
 
 const processChartData = (rawData) => {
   if (!rawData) return [];
@@ -63,6 +64,9 @@ const PassengerPrediction = () => {
   const [availableBuses, setAvailableBuses] = useState([]);
   const [assigningRouteId, setAssigningRouteId] = useState(null);
   const [busLoading, setBusLoading] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const { user } = useAuth();
 
@@ -111,6 +115,7 @@ const PassengerPrediction = () => {
         const processedChart = processChartData(data.chartData);
         setChartData(processedChart);
         setAllocations(data.byRoute || []);
+        setCurrentPage(1); // Reset page on data fetch/filter change
         setStats({
           totalPredicted: data.totalPredicted,
           accuracy: data.accuracy,
@@ -143,9 +148,12 @@ const PassengerPrediction = () => {
     setBusLoading(true);
     try {
       const buses = await busService.getAllBuses();
-      const available = buses.filter(b => 
-        b.status === 'active' && 
-        (!b.current_route_id || b.current_route_id === "0" || b.current_route_id === 0)
+      const available = buses.filter(
+        (b) =>
+          b.status === "active" &&
+          (!b.current_route_id ||
+            b.current_route_id === "0" ||
+            b.current_route_id === 0)
       );
       setAvailableBuses(available);
     } catch (error) {
@@ -158,11 +166,11 @@ const PassengerPrediction = () => {
   const handleAssignSingleBus = async (busId) => {
     if (!assigningRouteId) return;
     try {
-        await busService.updateBus(busId, { current_route_id: assigningRouteId });
-        setIsAssignModalOpen(false);
-        fetchPredictions();
+      await busService.updateBus(busId, { current_route_id: assigningRouteId });
+      setIsAssignModalOpen(false);
+      fetchPredictions();
     } catch (error) {
-        console.error("Error assigning bus:", error);
+      console.error("Error assigning bus:", error);
     }
   };
 
@@ -180,6 +188,11 @@ const PassengerPrediction = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  const paginatedAllocations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return allocations.slice(startIndex, startIndex + itemsPerPage);
+  }, [allocations, currentPage]);
 
   if (loading && !chartData.length && !error) return <Loading />;
 
@@ -431,7 +444,7 @@ const PassengerPrediction = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {allocations.map((d) => (
+              {paginatedAllocations.map((d) => (
                 <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
@@ -492,6 +505,12 @@ const PassengerPrediction = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={allocations.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
       {/* Assign Bus Modal */}
       {isAssignModalOpen && (
@@ -501,32 +520,41 @@ const PassengerPrediction = () => {
               <h3 className="text-xl font-bold text-gray-900">
                 Assign Bus to Route
               </h3>
-              <button 
+              <button
                 onClick={() => setIsAssignModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto flex-1">
               {busLoading ? (
-                <div className="flex justify-center py-8"><Loading /></div>
+                <div className="flex justify-center py-8">
+                  <Loading />
+                </div>
               ) : availableBuses.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   No available active buses found.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {availableBuses.map(bus => (
-                    <div key={bus.id} className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                  {availableBuses.map((bus) => (
+                    <div
+                      key={bus.id}
+                      className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center">
                           <Bus className="h-5 w-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="font-bold text-gray-900">{bus.bus_number}</div>
-                          <div className="text-sm text-gray-500">Capacity: {bus.capacity}</div>
+                          <div className="font-bold text-gray-900">
+                            {bus.bus_number}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Capacity: {bus.capacity}
+                          </div>
                         </div>
                       </div>
                       <button
