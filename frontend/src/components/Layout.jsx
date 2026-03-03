@@ -15,6 +15,8 @@ import {
   Menu,
   X,
   ChevronRight,
+  Activity,
+  FileText,
 } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
@@ -72,6 +74,10 @@ const Layout = () => {
         return "Passenger Feedback";
       case "predictions":
         return "Demand Forecasts";
+      case "drivers":
+        return "Driver Analytics";
+      case "investigation-notes":
+        return "Investigation Notes";
       case "users":
         return "User Directory";
       case "roles":
@@ -158,6 +164,18 @@ const Layout = () => {
             icon={TrendingUp}
             label="Predictions"
             to="/predictions"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          <SidebarItem
+            icon={Activity}
+            label="Driver Analytics"
+            to="/drivers"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          <SidebarItem
+            icon={FileText}
+            label="Investigation Notes"
+            to="/investigation-notes"
             onClick={() => setIsSidebarOpen(false)}
           />
 

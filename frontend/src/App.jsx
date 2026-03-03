@@ -9,6 +9,8 @@ import ComplaintAnalysis from './pages/ComplaintAnalysis';
 import PassengerPrediction from './pages/PassengerPrediction';
 import UserManagement from './pages/UserManagement';
 import RoleManagement from './pages/RoleManagement';
+import DriverAnalytics from './pages/DriverAnalytics';
+import InvestigationNotes from './pages/InvestigationNotes';
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }) => {
@@ -42,6 +44,8 @@ function App() {
             <Route path="map" element={<LiveMap />} />
             <Route path="complaints" element={<ComplaintAnalysis />} />
             <Route path="predictions" element={<PassengerPrediction />} />
+            <Route path="drivers" element={<DriverAnalytics />} />
+            <Route path="investigation-notes" element={<InvestigationNotes />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="roles" element={<RoleManagement />} />
           </Route>
