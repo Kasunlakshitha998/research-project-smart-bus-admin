@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 import {
   BarChart,
   Bar,
@@ -29,11 +30,13 @@ import {
   ExternalLink,
   Activity,
   Info,
+  X,
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import clsx from "clsx";
 import "leaflet/dist/leaflet.css";
+import complaintService from "../services/complaintService";
 
 // Custom Marker for Context Map
 const incidentIcon = L.divIcon({
@@ -47,89 +50,157 @@ const incidentIcon = L.divIcon({
   iconAnchor: [20, 20],
 });
 
-const ComplaintAnalysis = () => {
-  // RICH MOCK DATA WITH TELEMETRY SNAPSHOTS
-  const [complaints, setComplaints] = useState(() => [
-    {
-      id: "C-9901",
-      created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-      bus_plate: "WP NB-5432",
-      route: "138",
-      category: "Driver Behavior",
-      description:
-        "The driver was driving very aggressively and ignoring traffic signals at the Nugegoda junction. Very dangerous for passengers.",
-      status: "pending",
-      sentiment: "Negative",
-      telemetry: {
-        lat: 6.8741,
-        lng: 79.8887,
-        speed: "65 km/h",
-        occupancy: "92%",
-        driver: "Saman Kumara",
-        limit: "40 km/h (Exceeded)",
-      },
-    },
-    {
-      id: "C-9902",
-      created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-      bus_plate: "WP NB-8721",
-      route: "177",
-      category: "Cleanliness",
-      description:
-        "The back seats were very dusty and there was trash left on the floor. Needs immediate attention at the terminal.",
-      status: "resolved",
-      sentiment: "Neutral",
-      telemetry: {
-        lat: 6.9147,
-        lng: 79.9733,
-        speed: "12 km/h",
-        occupancy: "30%",
-        driver: "Sunil Perera",
-        limit: "50 km/h",
-      },
-    },
-    {
-      id: "C-9903",
-      created_at: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
-      bus_plate: "WP NA-3321",
-      route: "120",
-      category: "Delay",
-      description:
-        "The bus skipped two stops in Piliyandala, forcing us to wait for another 20 minutes. This is a recurring issue.",
-      status: "pending",
-      sentiment: "Very Negative",
-      telemetry: {
-        lat: 6.84,
-        lng: 79.96,
-        speed: "48 km/h",
-        occupancy: "75%",
-        driver: "Kamal Silva",
-        limit: "50 km/h",
-      },
-    },
-    {
-      id: "C-9904",
-      created_at: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
-      bus_plate: "WP NC-1122",
-      route: "138",
-      category: "AC/Facility",
-      description:
-        "AC was not working during the morning trip. It was very uncomfortable as the bus was packed.",
-      status: "pending",
-      sentiment: "Negative",
-      telemetry: {
-        lat: 6.91,
-        lng: 79.88,
-        speed: "35 km/h",
-        occupancy: "100%",
-        driver: "Ajith Fernado",
-        limit: "50 km/h",
-      },
-    },
-  ]);
+const ResolutionModal = ({ isOpen, onClose, onConfirm, category }) => {
+  const [message, setMessage] = useState("");
+  const [selectedPredefined, setSelectedPredefined] = useState("");
 
-  const [selectedComplaint, setSelectedComplaint] = useState(complaints[0]);
+  const predefinedMessages = {
+    "Over Speeding": [
+      "Issue investigated and driver warned regarding speed limits.",
+      "Telemetric data confirmed speeding; driver disciplinary action initiated.",
+      "False report; telemetry shows bus was within speed limits.",
+    ],
+    "Driver Behavior": [
+      "Driver has been summoned for a formal inquiry regarding behavior.",
+      "Warning issued to the driver; record updated.",
+      "Communication training scheduled for the assigned driver.",
+    ],
+    Delay: [
+      "Delay was due to unforeseen traffic conditions; passenger notified.",
+      "Route timing adjusted to prevent future delays.",
+      "Scheduling conflict resolved.",
+    ],
+    "Route Deviation": [
+      "Unauthorized route deviation confirmed; driver penalized.",
+      "Deviation was due to road closure/construction.",
+      "Directional guidance provided to the driver.",
+    ],
+    Cleanliness: [
+      "Bus scheduled for immediate intensive cleaning.",
+      "Daily cleaning protocol reinforced for this vehicle.",
+      "Maintenance team notified of the interior condition.",
+    ],
+    Other: [
+      "Issue resolved following internal investigation.",
+      "Maintenance scheduled to address the reported concern.",
+      "Thank you for the feedback; improvements have been implemented.",
+    ],
+  };
+
+  const options = predefinedMessages[category] || predefinedMessages["Other"];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="bg-white rounded-3xl w-full max-w-lg relative z-10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+            Resolve Complaint
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <X size={20} className="text-slate-400" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+              Quick Resolution Tips
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {options.map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSelectedPredefined(opt);
+                    setMessage(opt);
+                  }}
+                  className={clsx(
+                    "text-left p-3 rounded-xl text-xs font-bold border transition-all",
+                    selectedPredefined === opt
+                      ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
+                      : "bg-white border-slate-100 text-slate-500 hover:border-slate-200",
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+              Resolution Narrative
+            </label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Describe what actions were taken to resolve this..."
+              className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-700 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={!message.trim()}
+            onClick={() => onConfirm(message)}
+            className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-100 transition-all flex items-center"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Confirm Resolution
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ComplaintAnalysis = () => {
+  const { user } = useAuth();
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchComplaints = async () => {
+    try {
+      setLoading(true);
+      // If user is an agent, filter by their ID
+      const agentId = user?.role_id === "3" ? user.id : null;
+      console.log("Fetching complaints for:", { role: user?.role, agentId });
+      const data = await complaintService.getAllComplaints(agentId);
+      console.log("Fetched complaints count:", data.length);
+      setComplaints(data);
+      if (data.length > 0 && !selectedComplaint) {
+        setSelectedComplaint(data[0]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch complaints:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchComplaints();
+    }
+  }, [user]);
 
   const stats = useMemo(
     () => ({
@@ -153,26 +224,41 @@ const ComplaintAnalysis = () => {
         { day: "Sun", count: 3 },
       ],
     }),
-    [complaints]
+    [complaints],
   );
 
   const filteredComplaints = useMemo(
     () =>
       complaints.filter(
         (c) =>
-          c.bus_plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.id.toLowerCase().includes(searchQuery.toLowerCase())
+          c.license_plate?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.complaintCategory
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.complaintText?.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
-    [complaints, searchQuery]
+    [complaints, searchQuery],
   );
 
-  const updateStatus = (id, newStatus) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
-    );
-    if (selectedComplaint?.id === id) {
-      setSelectedComplaint((prev) => ({ ...prev, status: newStatus }));
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const updateStatus = async (id, newStatus, resolutionMessage = null) => {
+    try {
+      const result = await complaintService.updateStatus(
+        id,
+        newStatus,
+        resolutionMessage,
+      );
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...result } : c)),
+      );
+      if (selectedComplaint?.id === id) {
+        setSelectedComplaint((prev) => ({ ...prev, ...result }));
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Failed to update status:", error);
     }
   };
 
@@ -188,10 +274,12 @@ const ComplaintAnalysis = () => {
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center">
                 <Shield className="h-5 w-5 mr-2 text-blue-600" />
-                Complaints
+                {user?.role_id === "3" ? "My Tasks" : "Complaints"}
               </h1>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                Intelligence Engine
+                {user?.role_id === "3"
+                  ? `${user.specialization} Desk`
+                  : "Intelligence Engine"}
               </p>
             </div>
             <div className="flex space-x-2">
@@ -238,7 +326,7 @@ const ComplaintAnalysis = () => {
                 key={i}
                 className={clsx(
                   "flex-1 py-2 px-3 rounded-lg text-center border border-transparent hover:border-slate-200 transition-all cursor-default",
-                  s.bg
+                  s.bg,
                 )}
               >
                 <p className="text-[9px] font-black uppercase tracking-tighter text-slate-400 mb-0.5">
@@ -252,66 +340,82 @@ const ComplaintAnalysis = () => {
 
         {/* Master List */}
         <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
-          {filteredComplaints.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedComplaint(c)}
-              className={clsx(
-                "w-full p-4 rounded-xl border text-left transition-all group relative overflow-hidden",
-                selectedComplaint?.id === c.id
-                  ? "bg-blue-50/50 border-blue-200 ring-1 ring-blue-500/20 shadow-md"
-                  : "bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm"
-              )}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span
-                  className={clsx(
-                    "text-[9px] font-black uppercase tracking-tight px-2 py-0.5 rounded-md",
-                    selectedComplaint?.id === c.id
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-500"
-                  )}
-                >
-                  {c.id}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400">
-                  {new Date(c.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-              <h3 className="font-bold text-slate-900 text-xs mb-1 group-hover:text-blue-700 transition-colors uppercase tracking-tight">
-                {c.category}
-              </h3>
-              <p className="text-[11px] text-slate-500 line-clamp-1 mb-3">
-                {c.bus_plate} • {c.description}
-              </p>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={clsx(
-                      "h-1.5 w-1.5 rounded-full animate-pulse",
-                      c.status === "pending" ? "bg-orange-500" : "bg-green-500"
-                    )}
-                  />
+          {loading ? (
+            <div className="flex justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            filteredComplaints.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedComplaint(c)}
+                className={clsx(
+                  "w-full p-4 rounded-xl border text-left transition-all group relative overflow-hidden",
+                  selectedComplaint?.id === c.id
+                    ? "bg-blue-50/50 border-blue-200 ring-1 ring-blue-500/20 shadow-md"
+                    : "bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm",
+                )}
+              >
+                <div className="flex justify-between items-start mb-2">
                   <span
                     className={clsx(
-                      "text-[9px] font-black uppercase",
-                      c.status === "pending"
-                        ? "text-orange-600"
-                        : "text-green-600"
+                      "text-[9px] font-black uppercase tracking-tight px-2 py-0.5 rounded-md",
+                      selectedComplaint?.id === c.id
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-500",
                     )}
                   >
-                    {c.status}
+                    {c.id.substring(0, 8)}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {new Date(c.created_at || c.timestamp).toLocaleTimeString(
+                      [],
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
                   </span>
                 </div>
-                {selectedComplaint?.id === c.id && (
-                  <ArrowRight size={14} className="text-blue-500" />
+                <h3 className="font-bold text-slate-900 text-xs mb-1 group-hover:text-blue-700 transition-colors uppercase tracking-tight">
+                  {c.complaintCategory || "Uncategorized"}
+                </h3>
+                <p className="text-[11px] text-slate-500 line-clamp-1 mb-1">
+                  {c.license_plate} • {c.complaintText}
+                </p>
+                {c.assignedAgentName && (
+                  <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">
+                    Agent: {c.assignedAgentName}
+                  </p>
                 )}
-              </div>
-            </button>
-          ))}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className={clsx(
+                        "h-1.5 w-1.5 rounded-full animate-pulse",
+                        c.status?.toLowerCase() === "resolved"
+                          ? "bg-green-500"
+                          : "bg-orange-500",
+                      )}
+                    />
+                    <span
+                      className={clsx(
+                        "text-[9px] font-black uppercase",
+                        c.status?.toLowerCase() === "resolved"
+                          ? "text-green-600"
+                          : "text-orange-600",
+                      )}
+                    >
+                      {c.status}
+                    </span>
+                  </div>
+                  {selectedComplaint?.id === c.id && (
+                    <ArrowRight size={14} className="text-blue-500" />
+                  )}
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -340,11 +444,9 @@ const ComplaintAnalysis = () => {
                     Live Telemetry Link Active
                   </span>
                 </div>
-                {selectedComplaint.status === "pending" ? (
+                {selectedComplaint.status?.toLowerCase() !== "resolved" ? (
                   <button
-                    onClick={() =>
-                      updateStatus(selectedComplaint.id, "resolved")
-                    }
+                    onClick={() => setIsModalOpen(true)}
                     className="px-6 py-2 bg-green-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-green-100 hover:bg-green-700 transition-all flex items-center"
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -374,37 +476,40 @@ const ComplaintAnalysis = () => {
                         <AlertCircle size={20} />
                       </div>
                       <span className="text-xs font-black text-red-600 uppercase tracking-[0.2em]">
-                        {selectedComplaint.category} Report
+                        {selectedComplaint.complaintCategory} Report
                       </span>
                     </div>
 
                     <h2 className="text-3xl font-black text-slate-900 mb-6 leading-tight">
-                      "{selectedComplaint.description}"
+                      "{selectedComplaint.complaintText}"
                     </h2>
 
                     <div className="flex items-center justify-between pt-8 border-t border-slate-50">
                       <div className="flex items-center space-x-8">
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            Sentiment Analysis
+                            Confidence Score
                           </p>
                           <div
                             className={clsx(
                               "flex items-center px-3 py-1 rounded-full text-xs font-black uppercase",
-                              selectedComplaint.sentiment.includes("Negative")
-                                ? "bg-red-50 text-red-600"
-                                : "bg-slate-50 text-slate-600"
+                              selectedComplaint.confidenceScore > 0.7
+                                ? "bg-green-50 text-green-600"
+                                : "bg-slate-50 text-slate-600",
                             )}
                           >
                             <div
                               className={clsx(
                                 "h-1.5 w-1.5 rounded-full mr-2",
-                                selectedComplaint.sentiment.includes("Negative")
-                                  ? "bg-red-500"
-                                  : "bg-slate-400"
+                                selectedComplaint.confidenceScore > 0.7
+                                  ? "bg-green-500"
+                                  : "bg-slate-400",
                               )}
                             />
-                            {selectedComplaint.sentiment}
+                            {Math.round(
+                              (selectedComplaint.confidenceScore || 0) * 100,
+                            )}
+                            % Match
                           </div>
                         </div>
                         <div>
@@ -413,7 +518,8 @@ const ComplaintAnalysis = () => {
                           </p>
                           <p className="text-xs font-black text-slate-600 uppercase tracking-tighter">
                             {new Date(
-                              selectedComplaint.created_at
+                              selectedComplaint.created_at ||
+                                selectedComplaint.timestamp,
                             ).toLocaleString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -434,37 +540,53 @@ const ComplaintAnalysis = () => {
                     {[
                       {
                         label: "Assigned Driver",
-                        value: selectedComplaint.telemetry.driver,
+                        value: selectedComplaint.driver_name || "Unknown",
                         icon: User,
                         color: "text-blue-500",
                         bg: "bg-blue-50",
                       },
                       {
                         label: "Vehicle Plate",
-                        value: selectedComplaint.bus_plate,
+                        value: selectedComplaint.license_plate,
                         icon: Bus,
                         color: "text-indigo-500",
                         bg: "bg-indigo-50",
                       },
                       {
                         label: "Speed at Incident",
-                        value: selectedComplaint.telemetry.speed,
+                        value: `${selectedComplaint.busSpeedAtTime} km/h`,
                         icon: Activity,
                         color: "text-red-500",
                         bg: "bg-red-50",
-                        sub: selectedComplaint.telemetry.limit,
+                        sub: selectedComplaint.evidence || "Checking limits...",
                       },
                       {
-                        label: "Passenger Load",
-                        value: selectedComplaint.telemetry.occupancy,
-                        icon: User,
+                        label: "Route Information",
+                        value: `Route ${selectedComplaint.route_number || "N/A"}`,
+                        icon: MapPin,
                         color: "text-green-500",
                         bg: "bg-green-50",
+                        sub: selectedComplaint.route_name,
                       },
+                      ...(selectedComplaint.resolutionMessage
+                        ? [
+                            {
+                              label: "Resolution Outcome",
+                              value: selectedComplaint.resolutionMessage,
+                              icon: CheckCircle,
+                              color: "text-emerald-500",
+                              bg: "bg-emerald-50",
+                              sub: `Resolved on ${new Date(selectedComplaint.resolvedAt).toLocaleDateString()}`,
+                            },
+                          ]
+                        : []),
                     ].map((t, i) => (
                       <div
                         key={i}
-                        className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-start space-x-4"
+                        className={clsx(
+                          "bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-start space-x-4",
+                          t.label === "Resolution Outcome" && "col-span-2",
+                        )}
                       >
                         <div className={clsx("p-3 rounded-2xl", t.bg, t.color)}>
                           <t.icon size={24} />
@@ -484,6 +606,21 @@ const ComplaintAnalysis = () => {
                         </div>
                       </div>
                     ))}
+                    {selectedComplaint.assignedAgentName && (
+                      <div className="col-span-2 bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex items-center space-x-4">
+                        <div className="p-3 rounded-2xl bg-blue-100 text-blue-600">
+                          <User size={24} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">
+                            Assigned Agent
+                          </p>
+                          <p className="text-lg font-black text-blue-900 leading-none uppercase tracking-tighter">
+                            {selectedComplaint.assignedAgentName}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -508,8 +645,9 @@ const ComplaintAnalysis = () => {
                   <div className="flex-1 relative grayscale-[0.2]">
                     <MapContainer
                       center={[
-                        selectedComplaint.telemetry.lat,
-                        selectedComplaint.telemetry.lng,
+                        selectedComplaint.busLocationAtTime?.latitude || 6.9271,
+                        selectedComplaint.busLocationAtTime?.longitude ||
+                          79.8612,
                       ]}
                       zoom={15}
                       className="h-full w-full z-0"
@@ -522,8 +660,10 @@ const ComplaintAnalysis = () => {
                       />
                       <Marker
                         position={[
-                          selectedComplaint.telemetry.lat,
-                          selectedComplaint.telemetry.lng,
+                          selectedComplaint.busLocationAtTime?.latitude ||
+                            6.9271,
+                          selectedComplaint.busLocationAtTime?.longitude ||
+                            79.8612,
                         ]}
                         icon={incidentIcon}
                       />
@@ -538,8 +678,14 @@ const ComplaintAnalysis = () => {
                           </p>
                         </div>
                         <p className="text-sm font-black font-mono tracking-tighter mt-1">
-                          {selectedComplaint.telemetry.lat.toFixed(4)}° N,{" "}
-                          {selectedComplaint.telemetry.lng.toFixed(4)}° E
+                          {(
+                            selectedComplaint.busLocationAtTime?.latitude || 0
+                          ).toFixed(4)}
+                          ° N,{" "}
+                          {(
+                            selectedComplaint.busLocationAtTime?.longitude || 0
+                          ).toFixed(4)}
+                          ° E
                         </p>
                       </div>
                     </div>
@@ -559,6 +705,12 @@ const ComplaintAnalysis = () => {
           </div>
         )}
       </div>
+      <ResolutionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={(msg) => updateStatus(selectedComplaint.id, "resolved", msg)}
+        category={selectedComplaint?.complaintCategory}
+      />
     </div>
   );
 };

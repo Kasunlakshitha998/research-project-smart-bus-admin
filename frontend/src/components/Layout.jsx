@@ -33,7 +33,7 @@ const SidebarItem = ({ icon: Icon, label, to, onClick }) => {
           "flex items-center px-6 py-4 text-sm transition-all duration-300 group",
           isActive
             ? "active-curve"
-            : "text-white/90 hover:text-white hover:bg-white/5 mx-4 rounded-xl"
+            : "text-white/90 hover:text-white hover:bg-white/5 mx-4 rounded-xl",
         )}
       >
         <Icon className="h-5 w-5 mr-3 transition-colors" />
@@ -70,6 +70,8 @@ const Layout = () => {
         return "Real-time Tracking";
       case "complaints":
         return "Passenger Feedback";
+      case "test-complaint":
+        return "Submit Feedback";
       case "predictions":
         return "Demand Forecasts";
       case "users":
@@ -95,7 +97,7 @@ const Layout = () => {
       <aside
         className={clsx(
           "fixed inset-y-0 left-0 bg-[#0c2c57] w-72 z-50 transition-transform duration-300 transform lg:translate-x-0 lg:static flex flex-col",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="p-8 flex items-center space-x-3 mb-4">
@@ -130,18 +132,22 @@ const Layout = () => {
               Operations
             </p>
           </div>
-          <SidebarItem
-            icon={Map}
-            label="Routes"
-            to="/routes"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          <SidebarItem
-            icon={Bus}
-            label="Bus Fleet"
-            to="/buses"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          {user?.role_id !== "3" && (
+            <>
+              <SidebarItem
+                icon={Map}
+                label="Routes"
+                to="/routes"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+              <SidebarItem
+                icon={Bus}
+                label="Bus Fleet"
+                to="/buses"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            </>
+          )}
           <SidebarItem
             icon={Map}
             label="Live Map"
@@ -155,29 +161,39 @@ const Layout = () => {
             onClick={() => setIsSidebarOpen(false)}
           />
           <SidebarItem
+            icon={MessageSquare}
+            label="Test Complaint"
+            to="/test-complaint"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          <SidebarItem
             icon={TrendingUp}
             label="Predictions"
             to="/predictions"
             onClick={() => setIsSidebarOpen(false)}
           />
 
-          <div className="px-8 mt-8 mb-3">
-            <p className="text-[10px] font-bold text-blue-200/50 uppercase tracking-[0.2em]">
-              Admin
-            </p>
-          </div>
-          <SidebarItem
-            icon={Users}
-            label="Users"
-            to="/users"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          <SidebarItem
-            icon={Shield}
-            label="Roles"
-            to="/roles"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          {user?.role_id !== "3" && (
+            <>
+              <div className="px-8 mt-8 mb-3">
+                <p className="text-[10px] font-bold text-blue-200/50 uppercase tracking-[0.2em]">
+                  Admin
+                </p>
+              </div>
+              <SidebarItem
+                icon={Users}
+                label="Users"
+                to="/users"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+              <SidebarItem
+                icon={Shield}
+                label="Roles"
+                to="/roles"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            </>
+          )}
         </nav>
 
         <div className="px-6 py-2 shadow border-t border-gray-700">

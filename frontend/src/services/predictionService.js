@@ -7,8 +7,8 @@ const predictionService = {
     });
     return response.data;
   },
-  assignBuses: async (routeId, count) => {
-    const response = await api.post("/predictions/assign", { routeId, count });
+  applyBulkAssignments: async (assignments) => {
+    const response = await api.post("/assignments/apply", { assignments });
     return response.data;
   },
 };

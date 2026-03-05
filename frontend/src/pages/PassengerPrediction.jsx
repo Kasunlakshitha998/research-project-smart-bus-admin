@@ -36,7 +36,7 @@ const processChartData = (rawData) => {
     }
   });
   return Array.from(map.values()).sort(
-    (a, b) => new Date(a.date) - new Date(b.date)
+    (a, b) => new Date(a.date) - new Date(b.date),
   );
 };
 
@@ -64,6 +64,8 @@ const PassengerPrediction = () => {
   const [availableBuses, setAvailableBuses] = useState([]);
   const [assigningRouteId, setAssigningRouteId] = useState(null);
   const [busLoading, setBusLoading] = useState(false);
+  const [overrides, setOverrides] = useState({});
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -95,12 +97,12 @@ const PassengerPrediction = () => {
         routeQuery,
         timeRange,
         timeRange === "custom" ? customRange.start : null,
-        timeRange === "custom" ? customRange.end : null
+        timeRange === "custom" ? customRange.end : null,
       );
 
       if (data.stats?.error || data.chartData.length === 0) {
         setError(
-          data.stats?.error || "Data not available for selected criteria"
+          data.stats?.error || "Data not available for selected criteria",
         );
         setChartData([]);
         setAllocations([]);
@@ -153,7 +155,7 @@ const PassengerPrediction = () => {
           b.status === "active" &&
           (!b.current_route_id ||
             b.current_route_id === "0" ||
-            b.current_route_id === 0)
+            b.current_route_id === 0),
       );
       setAvailableBuses(available);
     } catch (error) {
@@ -171,6 +173,24 @@ const PassengerPrediction = () => {
       fetchPredictions();
     } catch (error) {
       console.error("Error assigning bus:", error);
+    }
+  };
+  const handleApplyBulkAssignments = async () => {
+    setAssignmentLoading(true);
+    try {
+      const finalAssignments = allocations.map((route) => ({
+        routeId: route.id,
+        count: overrides[route.id] ?? route.needed_buses,
+      }));
+
+      await predictionService.applyBulkAssignments(finalAssignments);
+      alert("Bus assignments applied successfully!");
+      fetchPredictions();
+    } catch (error) {
+      console.error("Error applying bulk assignments:", error);
+      alert(error.response?.data?.error || "Failed to apply assignments.");
+    } finally {
+      setAssignmentLoading(false);
     }
   };
 
@@ -294,7 +314,7 @@ const PassengerPrediction = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center text-gray-500 mb-2 text-sm">
                 <Calendar className="h-4 w-4 mr-2" />
-                <span className="font-medium">Peak Time</span>
+                <span className="font-medium">Peak Day</span>
               </div>
               <div className="text-2xl font-bold text-blue-600">
                 {stats.peakLabel}
@@ -310,8 +330,8 @@ const PassengerPrediction = () => {
                   stats.demandLevel === "High"
                     ? "text-orange-500"
                     : stats.demandLevel === "Low"
-                    ? "text-green-500"
-                    : "text-blue-500"
+                      ? "text-green-500"
+                      : "text-blue-500"
                 }`}
               >
                 {stats.demandLevel}
@@ -368,11 +388,11 @@ const PassengerPrediction = () => {
                         if (timeRange === "monthly")
                           return date.toLocaleDateString("en-US", {
                             month: "short",
-                          }); // Jan, Feb
+                          });
                         return date.toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
-                        }); // Jan 1, Jan 7
+                        });
                       }}
                     />
                     <YAxis />
@@ -440,6 +460,7 @@ const PassengerPrediction = () => {
                 <th className="px-6 py-3">Current Cap.</th>
                 <th className="px-6 py-3">Utilization</th>
                 <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3 text-right">Needed / Override</th>
                 <th className="px-6 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -482,28 +503,57 @@ const PassengerPrediction = () => {
                   <td className="px-6 py-4">
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                        d.status
+                        d.status,
                       )}`}
                     >
                       {d.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {(d.status === "Critically High" ||
-                      d.status === "High Demand" ||
-                      d.status === "Deficit") && (
-                      <button
-                        onClick={() => openAssignModal(d.id)}
-                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs transition-colors shadow-sm"
-                      >
-                        Assign Bus
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="text-gray-400 text-xs">
+                        Needed: {d.needed_buses}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-16 px-2 py-1 border border-gray-200 rounded text-center text-xs focus:ring-1 focus:ring-blue-500"
+                        value={overrides[d.id] ?? d.needed_buses}
+                        onChange={(e) =>
+                          setOverrides({
+                            ...overrides,
+                            [d.id]: parseInt(e.target.value) || 0,
+                          })
+                        }
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => openAssignModal(d.id)}
+                      className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs transition-colors"
+                    >
+                      Manual
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+          <button
+            onClick={handleApplyBulkAssignments}
+            disabled={assignmentLoading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-bold transition-colors shadow-sm flex items-center disabled:bg-blue-400"
+          >
+            {assignmentLoading ? (
+              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+            ) : (
+              <TrendingUp className="h-4 w-4 mr-2" />
+            )}
+            Automatically Assign Predicted Buses
+          </button>
         </div>
         <Pagination
           currentPage={currentPage}
