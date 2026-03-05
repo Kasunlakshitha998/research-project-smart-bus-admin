@@ -11,7 +11,7 @@ class UserService {
    */
   static async getAllUsers() {
     const snapshot = await db
-      .collection("users")
+      .collection("system_users")
       .orderBy("created_at", "desc")
       .get();
     const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -35,7 +35,7 @@ class UserService {
   static async createUser(data) {
     const { name, email, password, role_id } = data;
     const usersSnapshot = await db
-      .collection("users")
+      .collection("system_users")
       .where("email", "==", email)
       .get();
     if (!usersSnapshot.empty) {
@@ -52,7 +52,7 @@ class UserService {
       role_id,
       created_at: new Date(),
     };
-    const docRef = await db.collection("users").add(newUser);
+    const docRef = await db.collection("system_users").add(newUser);
     return { id: docRef.id, ...newUser };
   }
 
@@ -61,7 +61,10 @@ class UserService {
    */
   static async updateUser(id, data) {
     const { name, email, role_id } = data;
-    await db.collection("users").doc(id).update({ name, email, role_id });
+    await db
+      .collection("system_users")
+      .doc(id)
+      .update({ name, email, role_id });
     return { id, name, email, role_id };
   }
 
@@ -69,7 +72,7 @@ class UserService {
    * Delete a user.
    */
   static async deleteUser(id) {
-    await db.collection("users").doc(id).delete();
+    await db.collection("system_users").doc(id).delete();
   }
 }
 

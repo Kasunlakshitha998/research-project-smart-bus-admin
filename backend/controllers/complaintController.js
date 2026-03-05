@@ -10,7 +10,14 @@ const ComplaintService = require("../services/complaintService");
  */
 exports.getAllComplaints = async (req, res, next) => {
   try {
-    const complaints = await ComplaintService.getAllComplaints();
+    let agentId = req.query.agentId;
+
+    // If the logged-in user is an agent, force filter by their ID
+    if (req.user && req.user.role_id === "3") {
+      agentId = req.user.id;
+    }
+
+    const complaints = await ComplaintService.getAllComplaints(agentId);
     res.json(complaints);
   } catch (error) {
     next(error);
@@ -34,8 +41,12 @@ exports.createComplaint = async (req, res, next) => {
  */
 exports.updateComplaintStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
-    const result = await ComplaintService.updateStatus(req.params.id, status);
+    const { status, resolutionMessage } = req.body;
+    const result = await ComplaintService.updateStatus(
+      req.params.id,
+      status,
+      resolutionMessage,
+    );
     res.json(result);
   } catch (error) {
     next(error);

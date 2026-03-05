@@ -16,7 +16,7 @@ class AuthService {
     const { name, email, password } = userData;
 
     const usersSnapshot = await db
-      .collection("users")
+      .collection("system_users")
       .where("email", "==", email)
       .get();
     if (!usersSnapshot.empty) {
@@ -36,7 +36,7 @@ class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUserRef = await db.collection("users").add({
+    const newUserRef = await db.collection("system_users").add({
       name,
       email,
       password: hashedPassword,
@@ -55,7 +55,7 @@ class AuthService {
    */
   static async login(email, password) {
     const usersSnapshot = await db
-      .collection("users")
+      .collection("system_users")
       .where("email", "==", email)
       .get();
     if (usersSnapshot.empty) {
@@ -79,7 +79,7 @@ class AuthService {
     const token = jwt.sign(
       { id: user.id, role_id: user.role_id },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     return {
@@ -89,6 +89,8 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: role.name,
+        role_id: user.role_id,
+        specialization: user.specialization || null,
         permissions: role.permissions,
       },
     };
@@ -115,7 +117,7 @@ class AuthService {
         .get();
       if (!rpSnapshot.empty) {
         const permissionIds = rpSnapshot.docs.map(
-          (doc) => doc.data().permission_id
+          (doc) => doc.data().permission_id,
         );
         if (permissionIds.length > 0) {
           const pSnapshot = await db.collection("permissions").get();
@@ -137,7 +139,7 @@ class AuthService {
    * @returns {Promise<Object>} User profile
    */
   static async getMe(userId) {
-    const userDoc = await db.collection("users").doc(userId).get();
+    const userDoc = await db.collection("system_users").doc(userId).get();
     if (!userDoc.exists) {
       const error = new Error("User not found");
       error.status = 404;
@@ -152,6 +154,8 @@ class AuthService {
       name: userData.name,
       email: userData.email,
       role: role.name,
+      role_id: userData.role_id,
+      specialization: userData.specialization || null,
       permissions: role.permissions,
     };
   }

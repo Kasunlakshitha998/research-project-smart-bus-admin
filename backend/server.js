@@ -14,6 +14,13 @@ const complaintRoutes = require("./routes/complaintRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const roleRoutes = require("./routes/roleRoutes");
+const assignmentRoutes = require("./routes/assignmentRoutes");
+
+// Environment variables for microservices
+process.env.NLP_SERVICE_URL =
+  process.env.NLP_SERVICE_URL || "http://localhost:5002";
+process.env.PYTHON_API_URL =
+  process.env.PYTHON_API_URL || "http://localhost:5001";
 
 app.use(cors());
 app.use(express.json());
@@ -25,6 +32,7 @@ app.use("/api/complaints", complaintRoutes);
 app.use("/api/predictions", predictionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", roleRoutes); // /api/roles and /api/permissions
+app.use("/api/assignments", assignmentRoutes);
 
 app.get("/", (req, res) => {
   res.send("SLTB Admin Dashboard API is running");

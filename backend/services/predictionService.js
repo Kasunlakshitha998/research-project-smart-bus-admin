@@ -10,7 +10,7 @@ class PredictionService {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6 ? 1 : 0;
     const startOfYear = new Date(d.getFullYear(), 0, 1);
     const weekOfYear = Math.ceil(
-      ((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7
+      ((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7,
     );
     const diff = d - startOfYear;
     const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
@@ -35,7 +35,7 @@ class PredictionService {
     }
     const mean7 = sum7 / 7;
     const std7 = Math.sqrt(
-      vals7.reduce((acc, v) => acc + Math.pow(v - mean7, 2), 0) / 7
+      vals7.reduce((acc, v) => acc + Math.pow(v - mean7, 2), 0) / 7,
     );
 
     return {
@@ -61,7 +61,7 @@ class PredictionService {
     routeId,
     range = "daily",
     customStartDate = null,
-    customEndDate = null
+    customEndDate = null,
   ) {
     const pythonApiUrl = process.env.PYTHON_API_URL || "http://localhost:5001";
 
@@ -174,13 +174,13 @@ class PredictionService {
     for (const d of predictionDates) {
       const dStr = d.toISOString().split("T")[0];
       const dailyFeatures = routes.map((route) =>
-        this.getFeaturesForRouteDate(route, d, routeHistoryMap)
+        this.getFeaturesForRouteDate(route, d, routeHistoryMap),
       );
 
       try {
         const dailyPredictions = await this.callPythonApi(
           pythonApiUrl,
-          dailyFeatures
+          dailyFeatures,
         );
 
         // Update routeHistoryMap with new predictions for future lags
@@ -228,7 +228,7 @@ class PredictionService {
         routeId === "all"
           ? routes.reduce(
               (sum, r) => sum + (routeHistoryMap[r.id]?.[dStr] || 0),
-              0
+              0,
             )
           : routeHistoryMap[routeId]?.[dStr] || 0;
 
@@ -272,7 +272,7 @@ class PredictionService {
         const d = new Date(item.date);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
           2,
-          "0"
+          "0",
         )}`;
         // Use first day of month as date for visualization/sorting
         const dateStr = `${key}-01`;
@@ -349,13 +349,13 @@ class PredictionService {
     }
 
     const tableFeatures = routes.map((route) =>
-      this.getFeaturesForRouteDate(route, tableTargetDate, routeHistoryMap)
+      this.getFeaturesForRouteDate(route, tableTargetDate, routeHistoryMap),
     );
     let tablePredictionsRaw = [];
     try {
       tablePredictionsRaw = await this.callPythonApi(
         pythonApiUrl,
-        tableFeatures
+        tableFeatures,
       );
     } catch (e) {
       tablePredictionsRaw = tableFeatures.map(() => 0);
@@ -372,9 +372,17 @@ class PredictionService {
         currentCapacity > 0
           ? Math.round((predicted / currentCapacity) * 100)
           : predicted > 0
-          ? 100
-          : 0;
-      const neededBuses = Math.ceil(predicted / 50);
+            ? 100
+            : 0;
+      // New Formula: needed_buses = ceil( (predicted_passengers * estimated_trip_time) / (avg_seat_count * operational_hours * 60) )
+      // operational_hours = 12 (default)
+      // avg_seat_count = 50 (standard bus)
+      const estTripTime = parseInt(route.estimated_time) || 45; // Default 45 mins
+      const operationalHours = 12;
+      const avgSeatCount = 50;
+      const neededBuses = Math.ceil(
+        (predicted * estTripTime) / (avgSeatCount * operationalHours * 60),
+      );
       const gap = currentCapacity - predicted;
 
       let status = "Sufficient";
@@ -443,7 +451,7 @@ class PredictionService {
 
     if (available.length < count) {
       const error = new Error(
-        `Not enough available buses. Requested ${count}, found ${available.length}`
+        `Not enough available buses. Requested ${count}, found ${available.length}`,
       );
       error.status = 400;
       throw error;
