@@ -11,13 +11,17 @@ const ComplaintService = require("../services/complaintService");
 exports.getAllComplaints = async (req, res, next) => {
   try {
     let agentId = req.query.agentId;
+    let passengerId = req.query.passengerId;
 
     // If the logged-in user is an agent, force filter by their ID
     if (req.user && req.user.role_id === "3") {
       agentId = req.user.id;
     }
 
-    const complaints = await ComplaintService.getAllComplaints(agentId);
+    const complaints = await ComplaintService.getAllComplaints(
+      agentId,
+      passengerId,
+    );
     res.json(complaints);
   } catch (error) {
     next(error);
@@ -46,6 +50,22 @@ exports.updateComplaintStatus = async (req, res, next) => {
       req.params.id,
       status,
       resolutionMessage,
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Receive passenger feedback on a resolution.
+ */
+exports.updateComplaintFeedback = async (req, res, next) => {
+  try {
+    const { feedback } = req.body;
+    const result = await ComplaintService.updateFeedback(
+      req.params.id,
+      feedback,
     );
     res.json(result);
   } catch (error) {

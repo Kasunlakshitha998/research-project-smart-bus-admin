@@ -13,14 +13,16 @@ class ComplaintService {
    * @param {string} agentId Optional filter for assigned agent
    * @returns {Promise<Array>} List of enriched complaints
    */
-  static async getAllComplaints(agentId = null) {
+  static async getAllComplaints(agentId = null, passengerId = null) {
     let query = db.collection("complaints");
 
     if (agentId) {
       query = query.where("assignedAgentId", "==", agentId);
-    } else {
-      query = query.orderBy("created_at", "desc");
+    } else if (passengerId) {
+      query = query.where("passengerId", "==", passengerId);
     }
+
+    query = query.orderBy("created_at", "desc");
 
     const snapshot = await query.get();
     const complaints = snapshot.docs.map((doc) => ({
@@ -193,6 +195,19 @@ class ComplaintService {
       updates.resolutionMessage = resolutionMessage;
       updates.resolvedAt = new Date();
     }
+
+    await db.collection("complaints").doc(id).update(updates);
+    return { id, ...updates };
+  }
+
+  /**
+   * Update resolution feedback (Like/Dislike).
+   */
+  static async updateFeedback(id, feedback) {
+    const updates = {
+      resolutionFeedback: feedback,
+      feedback_at: new Date(),
+    };
 
     await db.collection("complaints").doc(id).update(updates);
     return { id, ...updates };
