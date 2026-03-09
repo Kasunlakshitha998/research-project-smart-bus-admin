@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const api = axios.create({
   baseURL: "http://localhost:5000/api",
@@ -15,7 +16,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor for error handling
@@ -29,9 +30,14 @@ api.interceptors.response.use(
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
+    } else if (error.response?.status === 403) {
+      // Permission Denied
+      toast.error(
+        "Permission Denied: You do not have access to this resource.",
+      );
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

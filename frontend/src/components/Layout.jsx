@@ -72,8 +72,6 @@ const Layout = () => {
         return "Real-time Tracking";
       case "complaints":
         return "Passenger Feedback";
-      case "test-complaint":
-        return "Submit Feedback";
       case "predictions":
         return "Demand Forecasts";
       case "drivers":
@@ -154,42 +152,44 @@ const Layout = () => {
               />
             </>
           )}
-          <SidebarItem
-            icon={Map}
-            label="Live Map"
-            to="/map"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          {user?.role_id !== "3" && (
+            <>
+              <SidebarItem
+                icon={Map}
+                label="Live Map"
+                to="/map"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            </>
+          )}
           <SidebarItem
             icon={MessageSquare}
             label="Complaints"
             to="/complaints"
             onClick={() => setIsSidebarOpen(false)}
           />
-          <SidebarItem
-            icon={MessageSquare}
-            label="Test Complaint"
-            to="/test-complaint"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          <SidebarItem
-            icon={TrendingUp}
-            label="Predictions"
-            to="/predictions"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          <SidebarItem
-            icon={Activity}
-            label="Driver Analytics"
-            to="/drivers"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          <SidebarItem
-            icon={FileText}
-            label="Investigation Notes"
-            to="/investigation-notes"
-            onClick={() => setIsSidebarOpen(false)}
-          />
+          {user?.role_id !== "3" && (
+            <>
+              <SidebarItem
+                icon={TrendingUp}
+                label="Predictions"
+                to="/predictions"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+              <SidebarItem
+                icon={Activity}
+                label="Driver Analytics"
+                to="/drivers"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+              <SidebarItem
+                icon={FileText}
+                label="Investigation Notes"
+                to="/investigation-notes"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            </>
+          )}
 
           {user?.role_id !== "3" && (
             <>

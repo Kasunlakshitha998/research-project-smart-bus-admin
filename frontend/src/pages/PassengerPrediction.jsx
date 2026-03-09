@@ -63,7 +63,9 @@ const PassengerPrediction = () => {
   });
   const [loading, setLoading] = useState(true);
   const [routes, setRoutes] = useState([]);
-  const [selectedRoute, setSelectedRoute] = useState("All Routes");
+  const [selectedRoute, setSelectedRoute] = useState("264");
+
+  console.log(selectedRoute);
   // daily, weekly, monthly
   const [timeRange, setTimeRange] = useState("daily");
 
