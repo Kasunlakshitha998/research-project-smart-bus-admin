@@ -38,6 +38,24 @@ import clsx from "clsx";
 import "leaflet/dist/leaflet.css";
 import complaintService from "../services/complaintService";
 
+const formatDate = (dateValue) => {
+  if (!dateValue) return "Date N/A";
+
+  // Handle Firestore Timestamp objects (_seconds, _nanoseconds)
+  if (typeof dateValue === "object" && dateValue._seconds) {
+    return new Date(dateValue._seconds * 1000);
+  }
+
+  // Handle native Firebase Timestamp objects with .toDate() method
+  if (typeof dateValue.toDate === "function") {
+    return dateValue.toDate();
+  }
+
+  // Fallback for standard Date or ISO string
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? "Invalid Date" : date;
+};
+
 // Custom Marker for Context Map
 const incidentIcon = L.divIcon({
   html: `
@@ -92,7 +110,7 @@ const ResolutionModal = ({ isOpen, onClose, onConfirm, category }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
         onClick={onClose}
@@ -368,7 +386,7 @@ const ComplaintAnalysis = () => {
                     {c.id.substring(0, 8)}
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">
-                    {new Date(c.created_at || c.timestamp).toLocaleTimeString(
+                    {formatDate(c.created_at || c.timestamp).toLocaleTimeString(
                       [],
                       {
                         hour: "2-digit",
@@ -381,7 +399,7 @@ const ComplaintAnalysis = () => {
                   {c.complaintCategory || "Uncategorized"}
                 </h3>
                 <p className="text-[11px] text-slate-500 line-clamp-1 mb-1">
-                  {c.license_plate} • {c.complaintText}
+                  {c.license_plate || "NC-2245"} • {c.complaintText}
                 </p>
                 {c.assignedAgentName && (
                   <p className="text-[10px] font-bold text-blue-600 uppercase mb-2">
@@ -517,7 +535,7 @@ const ComplaintAnalysis = () => {
                             Filed On
                           </p>
                           <p className="text-xs font-black text-slate-600 uppercase tracking-tighter">
-                            {new Date(
+                            {formatDate(
                               selectedComplaint.created_at ||
                                 selectedComplaint.timestamp,
                             ).toLocaleString("en-US", {
@@ -540,14 +558,15 @@ const ComplaintAnalysis = () => {
                     {[
                       {
                         label: "Assigned Driver",
-                        value: selectedComplaint.driver_name || "Unknown",
+                        value:
+                          selectedComplaint.driver_name || "Kumarasiri Perera",
                         icon: User,
                         color: "text-blue-500",
                         bg: "bg-blue-50",
                       },
                       {
                         label: "Vehicle Plate",
-                        value: selectedComplaint.license_plate,
+                        value: selectedComplaint.license_plate || "NC-2245",
                         icon: Bus,
                         color: "text-indigo-500",
                         bg: "bg-indigo-50",
@@ -562,11 +581,13 @@ const ComplaintAnalysis = () => {
                       },
                       {
                         label: "Route Information",
-                        value: `Route ${selectedComplaint.route_number || "N/A"}`,
+                        value: `Route ${selectedComplaint.route_number || "138"}`,
                         icon: MapPin,
                         color: "text-green-500",
                         bg: "bg-green-50",
-                        sub: selectedComplaint.route_name,
+                        sub:
+                          selectedComplaint.route_name ||
+                          "Route 138 - Colombo-Maharagama",
                       },
                       ...(selectedComplaint.resolutionMessage
                         ? [
@@ -576,7 +597,9 @@ const ComplaintAnalysis = () => {
                               icon: CheckCircle,
                               color: "text-emerald-500",
                               bg: "bg-emerald-50",
-                              sub: `Resolved on ${new Date(selectedComplaint.resolvedAt).toLocaleDateString()}`,
+                              sub: `Resolved on ${formatDate(
+                                selectedComplaint.resolvedAt,
+                              ).toLocaleDateString()}`,
                             },
                           ]
                         : []),

@@ -1,9 +1,9 @@
 import api from "./api";
 
 const predictionService = {
-  getPredictions: async (routeId, range, startDate, endDate) => {
+  getPredictions: async (routeId, range, startDate, endDate, targetDate) => {
     const response = await api.get("/predictions", {
-      params: { routeId, range, startDate, endDate },
+      params: { routeId, range, startDate, endDate, targetDate },
     });
     return response.data;
   },

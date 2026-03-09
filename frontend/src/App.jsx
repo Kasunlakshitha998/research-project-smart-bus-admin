@@ -17,6 +17,8 @@ import RoleManagement from "./pages/RoleManagement";
 import ComplaintForm from "./pages/ComplaintForm";
 import DriverAnalytics from "./pages/DriverAnalytics";
 import InvestigationNotes from "./pages/InvestigationNotes";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Layout from "./components/Layout";
 
 const ProtectedRoute = ({ children }) => {
@@ -39,6 +41,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
+      <ToastContainer position="top-right" autoClose={3000} />
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />

@@ -18,6 +18,8 @@ const RouteManagement = () => {
     end_point: "",
     distance: "",
     estimated_time: "",
+    start_time: "06:00",
+    end_time: "22:00",
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,6 +86,8 @@ const RouteManagement = () => {
         end_point: "",
         distance: "",
         estimated_time: "",
+        start_time: "06:00",
+        end_time: "22:00",
       });
     }
     setIsModalOpen(true);
@@ -97,7 +101,7 @@ const RouteManagement = () => {
   const filteredRoutes = routes.filter(
     (route) =>
       route.route_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      route.route_number.toLowerCase().includes(searchTerm.toLowerCase())
+      route.route_number.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const paginatedRoutes = useMemo(() => {
@@ -151,6 +155,7 @@ const RouteManagement = () => {
               <th className="px-6 py-3">End Point</th>
               <th className="px-6 py-3">Distance (km)</th>
               <th className="px-6 py-3">Est. Time</th>
+              <th className="px-6 py-3">Op. Hours</th>
               <th className="px-6 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -165,6 +170,11 @@ const RouteManagement = () => {
                 <td className="px-6 py-4">{route.end_point}</td>
                 <td className="px-6 py-4">{route.distance}</td>
                 <td className="px-6 py-4">{route.estimated_time}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">
+                    {route.start_time || "06:00"} - {route.end_time || "22:00"}
+                  </span>
+                </td>
                 <td className="px-6 py-4 text-right space-x-2">
                   <button
                     onClick={() => openModal(route)}
@@ -287,6 +297,32 @@ const RouteManagement = () => {
                     placeholder="e.g. 2h 30m"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     value={formData.estimated_time}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    name="start_time"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.start_time || "06:00"}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    name="end_time"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    value={formData.end_time || "22:00"}
                     onChange={handleInputChange}
                   />
                 </div>

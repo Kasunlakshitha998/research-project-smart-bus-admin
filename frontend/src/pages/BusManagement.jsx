@@ -113,7 +113,7 @@ const BusManagement = () => {
   const filteredBuses = buses.filter(
     (bus) =>
       bus.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (bus.model && bus.model.toLowerCase().includes(searchTerm.toLowerCase()))
+      (bus.model && bus.model.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
   const paginatedBuses = useMemo(() => {
@@ -187,7 +187,7 @@ const BusManagement = () => {
             {paginatedBuses.map((bus) => (
               <tr key={bus.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-gray-900">
-                  B{String(bus.id).padStart(3, "0")}
+                  {String(bus.id).padStart(3, "0")}
                 </td>
                 <td className="px-6 py-4">{bus.license_plate}</td>
                 <td className="px-6 py-4">{bus.model}</td>
@@ -196,7 +196,7 @@ const BusManagement = () => {
                 <td className="px-6 py-4">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      bus.status
+                      bus.status,
                     )}`}
                   >
                     {bus.status.charAt(0).toUpperCase() + bus.status.slice(1)}
@@ -234,6 +234,12 @@ const BusManagement = () => {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredBuses.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal */}
