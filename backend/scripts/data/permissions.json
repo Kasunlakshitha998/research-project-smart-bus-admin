@@ -1,0 +1,58 @@
+{
+    "1": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "Create, update, delete users",
+        "name": "Manage Users",
+        "slug": "manage_users",
+        "permission_id": "1"
+    },
+    "2": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "Create, update, delete roles",
+        "name": "Manage Roles",
+        "slug": "manage_roles",
+        "permission_id": "2"
+    },
+    "3": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "Create, update, delete routes",
+        "name": "Manage Routes",
+        "slug": "manage_routes",
+        "permission_id": "3"
+    },
+    "4": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "Create, update, delete buses",
+        "name": "Manage Buses",
+        "slug": "manage_buses",
+        "permission_id": "4"
+    },
+    "5": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "Update complaint status",
+        "name": "Manage Complaints",
+        "slug": "manage_complaints",
+        "permission_id": "5"
+    },
+    "6": {
+        "created_at": "2025-11-22T19:42:18.000Z",
+        "description": "View analytics and reports",
+        "name": "View Reports",
+        "slug": "view_reports",
+        "permission_id": "6"
+    },
+    "QFspNLglPbgdpTQ1BaJY": {
+        "created_at": "2026-03-04T07:15:52.000Z",
+        "description": "Resolve complaints",
+        "name": "Resolve Complaints",
+        "slug": "resolve_complaints",
+        "permission_id": "QFspNLglPbgdpTQ1BaJY"
+    },
+    "7": {
+        "created_at": "2026-03-08T22:00:00.000Z",
+        "description": "Manage bus allocations and overrides",
+        "name": "Manage Allocations",
+        "slug": "manage_allocations",
+        "permission_id": "7"
+    }
+}

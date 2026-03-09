@@ -1,0 +1,142 @@
+{
+    "1PvZUJ3BVXUqymRD9F66": {
+        "permission_id": "6",
+        "role_id": "2"
+    },
+    "2Pr991BGOtjmELFd0KJo": {
+        "permission_id": "3",
+        "role_id": "2"
+    },
+    "4BVvxEGHEHUXp5cDr5cl": {
+        "permission_id": "1",
+        "role_id": "1"
+    },
+    "583LjqSnDyDH03Y93cpM": {
+        "permission_id": "2",
+        "role_id": "1"
+    },
+    "6YZtCs4HI4VX4DAaT2Yz": {
+        "permission_id": "QFspNLglPbgdpTQ1BaJY",
+        "role_id": "1"
+    },
+    "7lKUOc4wppsrjMkUHoKs": {
+        "permission_id": "6",
+        "role_id": "2"
+    },
+    "7qlpI74JUFPWJBSAuFAn": {
+        "permission_id": "3",
+        "role_id": "2"
+    },
+    "8CQ1gYN6Zuhky2QbKpTb": {
+        "permission_id": "4",
+        "role_id": "1"
+    },
+    "8kIK9RScYvMLoCXSH9u6": {
+        "permission_id": "3",
+        "role_id": "2"
+    },
+    "9HdI3ntlUpjSekLaUDoV": {
+        "permission_id": "6",
+        "role_id": "1"
+    },
+    "BoBFOUno8P1dsGnBhtfR": {
+        "permission_id": "4",
+        "role_id": "2"
+    },
+    "EtWm6k1ABPjGYivVXVBw": {
+        "permission_id": "5",
+        "role_id": "1"
+    },
+    "KOKq1cxBI50wEFP9DTuI": {
+        "permission_id": "5",
+        "role_id": "2"
+    },
+    "KXNbOgyJYAFgeMFqcD2g": {
+        "permission_id": "5",
+        "role_id": "2"
+    },
+    "LVExyfKKqXFMkH1Et0ZD": {
+        "permission_id": "4",
+        "role_id": "1"
+    },
+    "OY4ZXVquwAG7UzuI2Ldt": {
+        "permission_id": "1",
+        "role_id": "1"
+    },
+    "PpstFkLOXaeozdLgDhEl": {
+        "permission_id": "4",
+        "role_id": "2"
+    },
+    "QHD8jupi0vzftf3vRLZq": {
+        "permission_id": "5",
+        "role_id": "2"
+    },
+    "TN9xLwmZ8jGy0ljNtrPz": {
+        "permission_id": "2",
+        "role_id": "1"
+    },
+    "UmflD25IGSTPlhX4dDKg": {
+        "permission_id": "3",
+        "role_id": "1"
+    },
+    "V6Kqx2UbqNjwvxNlo6S2": {
+        "permission_id": "QFspNLglPbgdpTQ1BaJY",
+        "role_id": "3"
+    },
+    "Vsu5gu50gFvArg2Dyhpm": {
+        "permission_id": "6",
+        "role_id": "1"
+    },
+    "Wk8eO4XdXFBVi3MEdFwR": {
+        "permission_id": "3",
+        "role_id": "1"
+    },
+    "XUGKFLre6mtob7awU7Lc": {
+        "permission_id": "5",
+        "role_id": "1"
+    },
+    "ZUAz0E2uOflyt2l31He7": {
+        "permission_id": "6",
+        "role_id": "2"
+    },
+    "dBnj9ACNdcVR18F8GC80": {
+        "permission_id": "4",
+        "role_id": "1"
+    },
+    "f5NbhjVD89uigjQeLYj5": {
+        "permission_id": "6",
+        "role_id": "1"
+    },
+    "gTAGthZQlpREbRnretPe": {
+        "permission_id": "1",
+        "role_id": "1"
+    },
+    "jgaLtS1a79bhYWM3XO5c": {
+        "permission_id": "5",
+        "role_id": "1"
+    },
+    "tgyWR2BOQvM1sYl9xhbF": {
+        "permission_id": "3",
+        "role_id": "1"
+    },
+    "vhxRlNT6gqQOT7BVne9j": {
+        "permission_id": "4",
+        "role_id": "2"
+    },
+    "wFKdZW2RgsToyXssFvK1": {
+        "permission_id": "2",
+        "role_id": "1"
+    },
+    "xoRUACnX6bKN9KW9El35": {
+        "permission_id": "QFspNLglPbgdpTQ1BaJY",
+        "role_id": "2"
+    },
+    "alloc_admin": {
+        "permission_id": "7",
+        "role_id": "1"
+    },
+    "alloc_manager": {
+        "permission_id": "7",
+        "role_id": "2"
+    }
+}

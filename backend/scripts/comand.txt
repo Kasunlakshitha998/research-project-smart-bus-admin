@@ -1,0 +1,3 @@
+node seed_buses.js
+node scripts/seed-data.js
+node populate_trip_history.js

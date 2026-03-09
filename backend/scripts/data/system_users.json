@@ -1,0 +1,82 @@
+{
+    "0KgPfese6liT0pq85q9i": {
+        "created_at": "2026-03-04T09:30:13.000Z",
+        "email": "behavior@smartbus.com",
+        "name": "Behavior Agent",
+        "password": "$2b$10$bpRjvqhtTdK4RWovIZnHHuPllLZGsAF985m4yw6SrDAEhDdkXGKaq",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Driver Behavior",
+        "userType": "agent"
+    },
+    "1": {
+        "created_at": "2025-11-22T19:09:42.000Z",
+        "email": "admin@sltb.gov.lk",
+        "name": "SLTB Admin",
+        "password": "$2b$10$o1iEoB.A6.d36qhn/akt/OcSqZy3ajYLY8NGRnyXslmgL0cyMD1tG",
+        "role": "admin",
+        "role_id": "1",
+        "specialization": null,
+        "userType": "admin"
+    },
+    "2": {
+        "created_at": "2025-11-22T20:30:38.000Z",
+        "email": "admin2@sltb.gov.lk",
+        "name": "manager",
+        "password": "$2b$10$P/lcqDLFR1mZf6VkMhlKmOkoz4/DBZn5LhXYh/rh0jSOvw74cfzci",
+        "role": "passenger",
+        "role_id": "2",
+        "specialization": null,
+        "userType": "passenger"
+    },
+    "33I2btnUzKh9LIcMVmgt": {
+        "created_at": "2026-03-04T09:30:11.000Z",
+        "email": "speeding@smartbus.com",
+        "name": "Speeding Agent",
+        "password": "$2b$10$7hyLrcstK6XqT1q/xlRUEeR1dy9fA0XqG/rDRXMEwADQrYFfqkIcK",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Over Speeding",
+        "userType": "agent"
+    },
+    "6AbkDTfD8ugcHmNv21aC": {
+        "created_at": "2026-03-04T09:30:15.000Z",
+        "email": "delay@smartbus.com",
+        "name": "Delay Agent",
+        "password": "$2b$10$CDXAftG4.h6CUFpkxJTh/Of9OlvYEjguG4Dxl2hPMxBor49pi2iEu",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Delay",
+        "userType": "agent"
+    },
+    "CUdwLqdxxmIDGH6lhjaF": {
+        "created_at": "2026-03-04T09:30:21.000Z",
+        "email": "general@smartbus.com",
+        "name": "General Agent",
+        "password": "$2b$10$e9UOYIq.SZ7s/YP/ffklgO..wHKhcIbj7R7de7bSl5si/.tV9EgTC",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Other",
+        "userType": "agent"
+    },
+    "YI9rhxsAxWVOEn2v2LHL": {
+        "created_at": "2026-03-04T09:30:17.000Z",
+        "email": "route@smartbus.com",
+        "name": "Route Agent",
+        "password": "$2b$10$hnSImTreapCwUpShodO3P.TeFFClm6ptndICGZGW5rfh/y6OyL9Nm",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Route Deviation",
+        "userType": "agent"
+    },
+    "jf0SW7Fe5fWmH4PVzzJ7": {
+        "created_at": "2026-03-04T09:30:19.000Z",
+        "email": "clean@smartbus.com",
+        "name": "Cleanliness Agent",
+        "password": "$2b$10$M/O02x80OfNQgrEPgW082OlI8FUAKkgF5L7EnRzAA.gCO7MvM3OL2",
+        "role": null,
+        "role_id": "3",
+        "specialization": "Cleanliness",
+        "userType": "agent"
+    }
+}

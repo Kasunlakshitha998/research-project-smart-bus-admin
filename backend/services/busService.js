@@ -21,7 +21,7 @@ class BusService {
 
     const routeIds = [
       ...new Set(
-        buses.filter((b) => b.current_route_id).map((b) => b.current_route_id)
+        buses.filter((b) => b.current_route_id).map((b) => b.current_route_id),
       ),
     ];
 
@@ -64,11 +64,12 @@ class BusService {
    * @returns {Promise<Object>} Updated bus
    */
   static async updateBus(id, updateData) {
-    const data = {
-      ...updateData,
-      capacity: parseInt(updateData.capacity) || 0,
-      current_route_id: updateData.current_route_id || null,
-    };
+    const data = { ...updateData };
+
+    if (updateData.capacity !== undefined) {
+      data.capacity = parseInt(updateData.capacity) || 0;
+    }
+
     await db.collection("buses").doc(id).update(data);
     return { id, ...data };
   }

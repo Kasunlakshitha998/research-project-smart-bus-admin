@@ -10,12 +10,13 @@ const PredictionService = require("../services/predictionService");
  */
 exports.getPredictions = async (req, res, next) => {
   try {
-    const { routeId, range, startDate, endDate } = req.query;
+    const { routeId, range, startDate, endDate, targetDate } = req.query;
     const result = await PredictionService.getPredictions(
       routeId,
       range,
       startDate,
-      endDate
+      endDate,
+      targetDate,
     );
     res.json(result);
   } catch (error) {

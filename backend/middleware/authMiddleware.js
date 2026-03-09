@@ -31,7 +31,11 @@ exports.authorize = (requiredPermission) => {
 
       // Hardcoded check for Admin role_id '1' as requested
       if (req.user.role_id.toString() === "1") {
-        if (["manage_users", "manage_roles"].includes(requiredPermission)) {
+        if (
+          ["manage_users", "manage_roles", "manage_allocations"].includes(
+            requiredPermission,
+          )
+        ) {
           console.log("Admin permission granted via role_id check");
           return next();
         }

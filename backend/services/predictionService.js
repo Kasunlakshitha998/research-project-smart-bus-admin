@@ -62,6 +62,7 @@ class PredictionService {
     range = "daily",
     customStartDate = null,
     customEndDate = null,
+    targetDate = null,
   ) {
     const pythonApiUrl = process.env.PYTHON_API_URL || "http://localhost:5001";
 
@@ -152,6 +153,17 @@ class PredictionService {
       let predictionPoints = 7;
       if (range === "weekly") predictionPoints = 28; // 4 weeks
       if (range === "monthly") predictionPoints = 90; // 3 months
+
+      // Ensure targetDate is covered if provided
+      if (targetDate) {
+        const target = new Date(targetDate);
+        const diffToTarget = Math.ceil(
+          (target - today) / (1000 * 60 * 60 * 24),
+        );
+        if (diffToTarget > predictionPoints) {
+          predictionPoints = Math.min(diffToTarget, 30); // Cap at 30 days for performance
+        }
+      }
 
       for (let i = 0; i < predictionPoints; i++) {
         const d = new Date(today);
@@ -341,9 +353,9 @@ class PredictionService {
       : "-";
 
     // Table (Today or Start of Range)
-    // If custom range is in future, use start of custom range. If includes today, use today.
-    let tableTargetDate = new Date();
-    if (range === "custom" && customStartDate) {
+    let tableTargetDate = targetDate ? new Date(targetDate) : new Date();
+
+    if (range === "custom" && customStartDate && !targetDate) {
       const start = new Date(customStartDate);
       if (start > today) tableTargetDate = start;
     }
@@ -414,6 +426,7 @@ class PredictionService {
     return {
       chartData: finalChartData,
       byRoute: routePredictions,
+      routes, // Include full route metadata for operational calculations
       totalPredicted: Math.round(totalPredictedVol),
       accuracy: "N/A", // Need real data to calc
       timestamp: new Date().toISOString(),
@@ -422,6 +435,7 @@ class PredictionService {
         peakLabel: peakLabel,
         demandLevel: demandLevel,
         avgDaily: Math.round(avgPredicted),
+        targetDate: tableTargetDate.toISOString().split("T")[0],
       },
     };
   }

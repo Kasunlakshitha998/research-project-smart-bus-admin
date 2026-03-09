@@ -1,0 +1,134 @@
+{
+    "264": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": 30,
+        "end_point": "Panadura / Moratuwa",
+        "estimated_time": "1h20m",
+        "id": "264",
+        "route_name": "Pettah - Panadura / Moratuwa",
+        "route_number": "100",
+        "start_point": "Pettah",
+        "route_id": "264"
+    },
+    "265": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Moratuwa",
+        "estimated_time": null,
+        "id": "265",
+        "route_name": "Pettah - Moratuwa",
+        "route_number": "101",
+        "start_point": "Pettah",
+        "route_id": "265"
+    },
+    "269": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Elakanda",
+        "estimated_time": null,
+        "id": "269",
+        "route_name": "Fort - Elakanda",
+        "route_number": "107",
+        "start_point": "Fort",
+        "route_id": "269"
+    },
+    "272": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Avissawella",
+        "estimated_time": null,
+        "id": "272",
+        "route_name": "Pettah - Avissawella",
+        "route_number": "122",
+        "start_point": "Pettah",
+        "route_id": "272"
+    },
+    "275": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Homagama",
+        "estimated_time": null,
+        "id": "275",
+        "route_name": "Pettah - Homagama",
+        "route_number": "138",
+        "start_point": "Pettah",
+        "route_id": "275"
+    },
+    "284": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Rajagiriya",
+        "estimated_time": null,
+        "id": "284",
+        "route_name": "Fort - Rajagiriya",
+        "route_number": "144",
+        "start_point": "Fort",
+        "route_id": "284"
+    },
+    "299": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Athurugiriya",
+        "estimated_time": null,
+        "id": "299",
+        "route_name": "Pettah - Athurugiriya",
+        "route_number": "170",
+        "start_point": "Pettah",
+        "route_id": "299"
+    },
+    "304": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Borella",
+        "estimated_time": null,
+        "id": "304",
+        "route_name": "Kottawa - Borella",
+        "route_number": "174",
+        "start_point": "Kottawa",
+        "route_id": "304"
+    },
+    "305": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Kohilawatta",
+        "estimated_time": null,
+        "id": "305",
+        "route_name": "Kollupitiya - Kohilawatta",
+        "route_number": "175",
+        "start_point": "Kollupitiya",
+        "route_id": "305"
+    },
+    "306": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Dehiwala",
+        "estimated_time": null,
+        "id": "306",
+        "route_name": "Hettiyawatta - Dehiwala",
+        "route_number": "176",
+        "start_point": "Hettiyawatta",
+        "route_id": "306"
+    },
+    "307": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Kaduwela",
+        "estimated_time": null,
+        "id": "307",
+        "route_name": "Kollupitiya - Kaduwela",
+        "route_number": "177",
+        "start_point": "Kollupitiya",
+        "route_id": "307"
+    },
+    "319": {
+        "created_at": "2025-12-19T14:08:51.000Z",
+        "distance": null,
+        "end_point": "Meegoda",
+        "estimated_time": null,
+        "id": "319",
+        "route_name": "Colombo - Meegoda",
+        "route_number": "190",
+        "start_point": "Colombo",
+        "route_id": "319"
+    }
+}
