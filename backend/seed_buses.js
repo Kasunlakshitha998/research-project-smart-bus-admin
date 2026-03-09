@@ -1,23 +1,9 @@
-const admin = require("firebase-admin");
-const dotenv = require("dotenv");
-
-dotenv.config();
-
-const firebaseConfig = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY
-    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
-    : undefined,
-};
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(firebaseConfig),
-  });
-}
-
-const db = admin.firestore();
+/**
+ * seed_buses.js
+ * Seeds 30 dummy buses into the MySQL `buses` table.
+ * Usage: node seed_buses.js
+ */
+const db = require("./config/db");
 
 const models = [
   "Leyland Viking",
@@ -28,22 +14,33 @@ const models = [
 ];
 
 async function seedMoreBuses() {
-  const batch = db.batch();
+  console.log("Seeding 30 buses into MySQL...");
+
+  const values = [];
   for (let i = 1; i <= 30; i++) {
-    const busId = `BUS_${i}`;
-    const busRef = db.collection("buses").doc(busId);
-    batch.set(busRef, {
-      license_plate: `NB-${1000 + i}`,
-      capacity: Math.random() > 0.5 ? 52 : 32,
-      model: models[Math.floor(Math.random() * models.length)],
-      status: "active",
-      current_route_id: null,
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const license_plate = `NB-${1000 + i}`;
+    const bus_number = `BUS_${i}`;
+    const capacity = Math.random() > 0.5 ? 52 : 32;
+    const model = models[Math.floor(Math.random() * models.length)];
+    values.push(
+      `('${license_plate}', '${bus_number}', ${capacity}, '${model}', 'active', NULL)`,
+    );
   }
-  await batch.commit();
-  console.log("Seeded/Updated 30 dummy buses (fixed IDs)!");
-  process.exit();
+
+  const sql = `
+    INSERT IGNORE INTO buses (license_plate, bus_number, capacity, model, status, current_route_id)
+    VALUES ${values.join(",\n    ")};
+  `;
+
+  try {
+    const [result] = await db.execute(sql);
+    console.log(`Done! Inserted/skipped ${result.affectedRows} buses.`);
+  } catch (err) {
+    console.error("Error seeding buses:", err.message);
+  } finally {
+    await db.end();
+    process.exit(0);
+  }
 }
 
 seedMoreBuses();

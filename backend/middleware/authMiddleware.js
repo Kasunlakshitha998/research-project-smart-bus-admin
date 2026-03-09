@@ -29,7 +29,7 @@ exports.authorize = (requiredPermission) => {
         return res.status(403).json({ message: "User role not found" });
       }
 
-      // Hardcoded check for Admin role_id '1' as requested
+      // Hardcoded check for Admin role_id '1'
       if (req.user.role_id.toString() === "1") {
         if (
           ["manage_users", "manage_roles", "manage_allocations"].includes(
@@ -41,32 +41,31 @@ exports.authorize = (requiredPermission) => {
         }
       }
 
-      // Check if role has permission in Firestore
-      const permissionsSnapshot = await db
-        .collection("permissions")
-        .where("slug", "==", requiredPermission)
-        .get();
+      // Check if role has permission via MySQL
+      const [permRows] = await db.execute(
+        "SELECT id FROM permissions WHERE slug = ?",
+        [requiredPermission],
+      );
 
-      if (permissionsSnapshot.empty) {
+      if (permRows.length === 0) {
         console.error("Permission slug not found:", requiredPermission);
         return res.status(403).json({ message: "Permission denied" });
       }
 
-      const permissionId = permissionsSnapshot.docs[0].id;
+      const permissionId = permRows[0].id;
 
-      const rpSnapshot = await db
-        .collection("role_permissions")
-        .where("role_id", "==", req.user.role_id.toString())
-        .where("permission_id", "==", permissionId)
-        .get();
+      const [rpRows] = await db.execute(
+        "SELECT id FROM role_permissions WHERE role_id = ? AND permission_id = ?",
+        [req.user.role_id, permissionId],
+      );
 
       console.log("Permission check result:", {
         role_id: req.user.role_id,
         requiredPermission,
-        found: !rpSnapshot.empty,
+        found: rpRows.length > 0,
       });
 
-      if (!rpSnapshot.empty) {
+      if (rpRows.length > 0) {
         next();
       } else {
         return res.status(403).json({ message: "Permission denied" });

@@ -67,13 +67,15 @@ class PredictionService {
     const pythonApiUrl = process.env.PYTHON_API_URL || "http://localhost:5001";
 
     // 1. Get routes
-    const routes = [];
+    let routes = [];
     if (routeId && routeId !== "all") {
-      const doc = await db.collection("routes").doc(routeId).get();
-      if (doc.exists) routes.push({ id: doc.id, ...doc.data() });
+      const [rows] = await db.execute("SELECT * FROM routes WHERE id = ?", [
+        routeId,
+      ]);
+      if (rows.length > 0) routes = rows;
     } else {
-      const snapshot = await db.collection("routes").get();
-      snapshot.forEach((doc) => routes.push({ id: doc.id, ...doc.data() }));
+      const [rows] = await db.execute("SELECT * FROM routes");
+      routes = rows;
     }
 
     if (routes.length === 0)
@@ -85,26 +87,23 @@ class PredictionService {
         stats: {},
       };
 
-    // 2. Get bus capacity
-    const busSnapshot = await db
-      .collection("buses")
-      .where("status", "==", "active")
-      .get();
+    // 2. Get bus capacity per route
+    const [activebusBuses] = await db.execute(
+      "SELECT current_route_id, COUNT(*) as count, SUM(capacity) as total_capacity FROM buses WHERE status = 'active' GROUP BY current_route_id",
+    );
     const busCountMap = {};
-    busSnapshot.forEach((doc) => {
-      const b = doc.data();
-      if (b.current_route_id) {
-        if (!busCountMap[b.current_route_id])
-          busCountMap[b.current_route_id] = { count: 0, capacity: 0 };
-        busCountMap[b.current_route_id].count++;
-        busCountMap[b.current_route_id].capacity += parseInt(b.capacity) || 0;
+    activebusBuses.forEach((row) => {
+      if (row.current_route_id) {
+        busCountMap[row.current_route_id] = {
+          count: row.count,
+          capacity: row.total_capacity || 0,
+        };
       }
     });
 
     // 3. Historical Data Setup
     const today = new Date();
-    // Determine lookback period based on request or default
-    let lookbackDays = 30; // Default
+    let lookbackDays = 30;
     if (range === "monthly") lookbackDays = 365;
     else if (range === "weekly") lookbackDays = 90;
 
@@ -112,22 +111,23 @@ class PredictionService {
     historyStartDate.setDate(today.getDate() - lookbackDays);
     const historyStartDateStr = historyStartDate.toISOString().split("T")[0];
 
-    // Fetch History
-    const historySnapshot = await db
-      .collection("trip_history")
-      .where("trip_date", ">=", historyStartDateStr)
-      .orderBy("trip_date", "asc")
-      .get();
+    const [historyRows] = await db.execute(
+      "SELECT * FROM trip_history WHERE trip_date >= ? ORDER BY trip_date ASC",
+      [historyStartDateStr],
+    );
 
     const routeHistoryMap = {};
     let totalHistoricalPassengers = 0;
     let historicalDaysCount = 0;
 
-    historySnapshot.forEach((doc) => {
-      const h = doc.data();
+    historyRows.forEach((h) => {
+      const tripDate =
+        h.trip_date instanceof Date
+          ? h.trip_date.toISOString().split("T")[0]
+          : String(h.trip_date).split("T")[0];
       if (!routeHistoryMap[h.route_id]) routeHistoryMap[h.route_id] = {};
-      routeHistoryMap[h.route_id][h.trip_date] = h.passenger_count;
-      if (h.trip_date >= historyStartDateStr) {
+      routeHistoryMap[h.route_id][tripDate] = h.passenger_count;
+      if (tripDate >= historyStartDateStr) {
         totalHistoricalPassengers += h.passenger_count;
         historicalDaysCount++;
       }
@@ -135,36 +135,28 @@ class PredictionService {
 
     // 4. Prediction Date Range Setup
     const predictionDates = [];
-
     if (range === "custom" && customStartDate && customEndDate) {
       const start = new Date(customStartDate);
       const end = new Date(customEndDate);
-      // Limit custom range to avoid overload (e.g., max 90 days)
       const diffTime = Math.abs(end - start);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
       if (diffDays > 90) throw new Error("Custom range cannot exceed 90 days.");
-
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         predictionDates.push(new Date(d));
       }
     } else {
-      // Default ranges
       let predictionPoints = 7;
-      if (range === "weekly") predictionPoints = 28; // 4 weeks
-      if (range === "monthly") predictionPoints = 90; // 3 months
-
-      // Ensure targetDate is covered if provided
+      if (range === "weekly") predictionPoints = 28;
+      if (range === "monthly") predictionPoints = 90;
       if (targetDate) {
         const target = new Date(targetDate);
         const diffToTarget = Math.ceil(
           (target - today) / (1000 * 60 * 60 * 24),
         );
         if (diffToTarget > predictionPoints) {
-          predictionPoints = Math.min(diffToTarget, 30); // Cap at 30 days for performance
+          predictionPoints = Math.min(diffToTarget, 30);
         }
       }
-
       for (let i = 0; i < predictionPoints; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i + 1);
@@ -188,17 +180,13 @@ class PredictionService {
       const dailyFeatures = routes.map((route) =>
         this.getFeaturesForRouteDate(route, d, routeHistoryMap),
       );
-
       try {
         const dailyPredictions = await this.callPythonApi(
           pythonApiUrl,
           dailyFeatures,
         );
-
-        // Update routeHistoryMap with new predictions for future lags
         routes.forEach((route, idx) => {
           if (!routeHistoryMap[route.id]) routeHistoryMap[route.id] = {};
-          // Guard against potentially missing results
           const val =
             dailyPredictions && dailyPredictions[idx] !== undefined
               ? dailyPredictions[idx]
@@ -208,14 +196,12 @@ class PredictionService {
         });
       } catch (error) {
         console.error(`Prediction Error for ${dStr}:`, error.message);
-        // Fallback: push zeros to maintain consistent array structure
         routes.forEach(() => allApiResults.push(0));
       }
     }
 
     const apiResults = allApiResults;
-
-    if (!apiResults || apiResults.length === 0) {
+    if (!apiResults || apiResults.length === 0)
       return {
         chartData: [],
         byRoute: [],
@@ -223,14 +209,12 @@ class PredictionService {
         accuracy: "0%",
         stats: { error: "No prediction data returned." },
       };
-    }
 
-    // 7. Aggregate Data for Chart
+    // 6. Aggregate Chart Data
     const chartData = [];
-
-    let contextDays = 7; // Default daily
-    if (range === "weekly") contextDays = 14; // 2 weeks actual
-    if (range === "monthly") contextDays = 30; // 1 month actual
+    let contextDays = 7;
+    if (range === "weekly") contextDays = 14;
+    if (range === "monthly") contextDays = 30;
 
     for (let i = contextDays; i >= 0; i--) {
       const d = new Date(today);
@@ -243,10 +227,8 @@ class PredictionService {
               0,
             )
           : routeHistoryMap[routeId]?.[dStr] || 0;
-
-      if (count > 0) {
+      if (count > 0)
         chartData.push({ name: dStr, date: dStr, count, type: "actual" });
-      }
     }
 
     let totalPredictedVol = 0;
@@ -260,13 +242,11 @@ class PredictionService {
         for (let j = 0; j < routes.length; j++)
           count += apiResults[i * routes.length + j];
       } else {
-        const idx = routes.findIndex((r) => r.id === routeId);
+        const idx = routes.findIndex((r) => r.id == routeId);
         count = apiResults[i * routes.length + idx];
       }
-
       count = Math.max(0, Math.round(count));
       chartData.push({ name: dStr, date: dStr, count, type: "predicted" });
-
       totalPredictedVol += count;
       if (count > maxPred) {
         maxPred = count;
@@ -274,52 +254,30 @@ class PredictionService {
       }
     });
 
-    // Aggregation Logic (Weekly/Monthly Sums)
+    // Aggregation
     let finalChartData = chartData;
-
     if (range === "monthly") {
       const aggMap = new Map();
       chartData.forEach((item) => {
-        // Key by Month (YYYY-MM)
         const d = new Date(item.date);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-          2,
-          "0",
-        )}`;
-        // Use first day of month as date for visualization/sorting
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         const dateStr = `${key}-01`;
-
-        if (!aggMap.has(key)) {
-          aggMap.set(key, {
-            name: dateStr,
-            date: dateStr,
-            count: 0,
-            type: item.type,
-          });
-        }
-        const entry = aggMap.get(key);
-        entry.count += item.count;
         const typeKey = key + item.type;
         if (!aggMap.has(typeKey)) {
-          aggMap.set(typeKey, {
-            ...item,
-            date: dateStr,
-          });
+          aggMap.set(typeKey, { ...item, date: dateStr });
         } else {
           aggMap.get(typeKey).count += item.count;
         }
       });
-
       finalChartData = Array.from(aggMap.values());
     } else if (range === "weekly") {
       const aggMap = new Map();
       chartData.forEach((item) => {
         const d = new Date(item.date);
         const day = d.getDay();
-        const diff = d.getDate() - day; // adjust when day is sunday
+        const diff = d.getDate() - day;
         const weekStart = new Date(d.setDate(diff));
         const dateStr = weekStart.toISOString().split("T")[0];
-
         const typeKey = dateStr + item.type;
         if (!aggMap.has(typeKey)) {
           aggMap.set(typeKey, { ...item, date: dateStr });
@@ -328,11 +286,9 @@ class PredictionService {
         }
       });
       finalChartData = Array.from(aggMap.values());
-    } else {
-      finalChartData = chartData;
     }
 
-    // 8. Stats & Table
+    // 7. Stats
     const avgHistorical =
       historicalDaysCount > 0
         ? totalHistoricalPassengers / historicalDaysCount
@@ -341,20 +297,16 @@ class PredictionService {
       predictionDates.length > 0
         ? totalPredictedVol / predictionDates.length
         : 0;
-
     let growthRate = 0;
-    if (avgHistorical > 0) {
+    if (avgHistorical > 0)
       growthRate = ((avgPredicted - avgHistorical) / avgHistorical) * 100;
-    }
 
     const peakDateObj = maxPredDate ? new Date(maxPredDate) : null;
     const peakLabel = peakDateObj
       ? peakDateObj.toLocaleDateString("en-US", { weekday: "long" })
       : "-";
 
-    // Table (Today or Start of Range)
     let tableTargetDate = targetDate ? new Date(targetDate) : new Date();
-
     if (range === "custom" && customStartDate && !targetDate) {
       const start = new Date(customStartDate);
       if (start > today) tableTargetDate = start;
@@ -386,17 +338,13 @@ class PredictionService {
           : predicted > 0
             ? 100
             : 0;
-      // New Formula: needed_buses = ceil( (predicted_passengers * estimated_trip_time) / (avg_seat_count * operational_hours * 60) )
-      // operational_hours = 12 (default)
-      // avg_seat_count = 50 (standard bus)
-      const estTripTime = parseInt(route.estimated_time) || 45; // Default 45 mins
+      const estTripTime = parseInt(route.estimated_time) || 45;
       const operationalHours = 12;
       const avgSeatCount = 50;
       const neededBuses = Math.ceil(
         (predicted * estTripTime) / (avgSeatCount * operationalHours * 60),
       );
       const gap = currentCapacity - predicted;
-
       let status = "Sufficient";
       if (utilization > 90) status = "Critically High";
       else if (utilization > 75) status = "High Demand";
@@ -409,10 +357,10 @@ class PredictionService {
         prediction: predicted,
         current_buses: currentBuses,
         current_capacity: currentCapacity,
-        utilization: utilization,
+        utilization,
         needed_buses: neededBuses,
-        gap: gap,
-        status: status,
+        gap,
+        status,
       };
     });
 
@@ -426,14 +374,14 @@ class PredictionService {
     return {
       chartData: finalChartData,
       byRoute: routePredictions,
-      routes, // Include full route metadata for operational calculations
+      routes,
       totalPredicted: Math.round(totalPredictedVol),
-      accuracy: "N/A", // Need real data to calc
+      accuracy: "N/A",
       timestamp: new Date().toISOString(),
       stats: {
         growthRate: growthRate.toFixed(1),
-        peakLabel: peakLabel,
-        demandLevel: demandLevel,
+        peakLabel,
+        demandLevel,
         avgDaily: Math.round(avgPredicted),
         targetDate: tableTargetDate.toISOString().split("T")[0],
       },
@@ -441,45 +389,32 @@ class PredictionService {
   }
 
   static async callPythonApi(url, featureSets) {
-    // Removed try-catch fallback. Now throws if fails.
     const response = await axios.post(`${url}/predict`, featureSets);
     return response.data.predictions;
   }
 
   static async assignBuses(routeId, count) {
-    const busSnapshot = await db
-      .collection("buses")
-      .where("status", "==", "active")
-      .get();
-    const available = [];
-    busSnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (
-        !data.current_route_id ||
-        data.current_route_id === "0" ||
-        data.current_route_id === 0
-      ) {
-        available.push({ id: doc.id });
-      }
-    });
+    const [activeBuses] = await db.execute(
+      "SELECT id FROM buses WHERE status = 'active' AND (current_route_id IS NULL OR current_route_id = 0)",
+    );
 
-    if (available.length < count) {
+    if (activeBuses.length < count) {
       const error = new Error(
-        `Not enough available buses. Requested ${count}, found ${available.length}`,
+        `Not enough available buses. Requested ${count}, found ${activeBuses.length}`,
       );
       error.status = 400;
       throw error;
     }
 
-    const batch = db.batch();
-    available.slice(0, count).forEach((bus) => {
-      batch.update(db.collection("buses").doc(bus.id), {
-        current_route_id: routeId,
-      });
-    });
-    await batch.commit();
+    const selected = activeBuses.slice(0, count);
+    for (const bus of selected) {
+      await db.execute("UPDATE buses SET current_route_id = ? WHERE id = ?", [
+        routeId,
+        bus.id,
+      ]);
+    }
 
-    return available.slice(0, count).map((b) => b.id);
+    return selected.map((b) => b.id);
   }
 }
 

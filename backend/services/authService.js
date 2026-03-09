@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 
 /**
  * AuthService
- * Handles user registration, login, and permission checks.
+ * Handles user registration, login, and permission checks using MySQL.
  */
 class AuthService {
   /**
@@ -15,36 +15,32 @@ class AuthService {
   static async register(userData) {
     const { name, email, password } = userData;
 
-    const usersSnapshot = await db
-      .collection("system_users")
-      .where("email", "==", email)
-      .get();
-    if (!usersSnapshot.empty) {
+    const [users] = await db.execute(
+      "SELECT id FROM system_users WHERE email = ?",
+      [email],
+    );
+    if (users.length > 0) {
       const error = new Error("User already exists");
       error.status = 400;
       throw error;
     }
 
     // Default role: Passenger
-    const rolesSnapshot = await db
-      .collection("roles")
-      .where("name", "==", "Passenger")
-      .get();
+    const [roles] = await db.execute(
+      "SELECT id FROM roles WHERE name = 'Passenger'",
+    );
     let roleId = null;
-    if (!rolesSnapshot.empty) {
-      roleId = rolesSnapshot.docs[0].id;
+    if (roles.length > 0) {
+      roleId = roles[0].id;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUserRef = await db.collection("system_users").add({
-      name,
-      email,
-      password: hashedPassword,
-      role_id: roleId,
-      created_at: new Date(),
-    });
+    const [result] = await db.execute(
+      "INSERT INTO system_users (name, email, password, role_id, created_at) VALUES (?, ?, ?, ?, NOW())",
+      [name, email, hashedPassword, roleId],
+    );
 
-    return { id: newUserRef.id };
+    return { id: result.insertId };
   }
 
   /**
@@ -54,18 +50,17 @@ class AuthService {
    * @returns {Promise<Object>} Token and user info
    */
   static async login(email, password) {
-    const usersSnapshot = await db
-      .collection("system_users")
-      .where("email", "==", email)
-      .get();
-    if (usersSnapshot.empty) {
+    const [users] = await db.execute(
+      "SELECT * FROM system_users WHERE email = ?",
+      [email],
+    );
+    if (users.length === 0) {
       const error = new Error("Invalid credentials");
       error.status = 400;
       throw error;
     }
 
-    const userDoc = usersSnapshot.docs[0];
-    const user = { id: userDoc.id, ...userDoc.data() };
+    const user = users[0];
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -77,7 +72,7 @@ class AuthService {
     const role = await this.getRoleDetails(user.role_id);
 
     const token = jwt.sign(
-      { id: user.id, role_id: user.role_id },
+      { id: String(user.id), role_id: String(user.role_id) },
       process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
@@ -85,11 +80,11 @@ class AuthService {
     return {
       token,
       user: {
-        id: user.id,
+        id: String(user.id),
         name: user.name,
         email: user.email,
         role: role.name,
-        role_id: user.role_id,
+        role_id: String(user.role_id),
         specialization: user.specialization || null,
         permissions: role.permissions,
       },
@@ -98,7 +93,7 @@ class AuthService {
 
   /**
    * Get role name and permission slugs.
-   * @param {string} roleId
+   * @param {number|string} roleId
    * @returns {Promise<Object>} Role details
    */
   static async getRoleDetails(roleId) {
@@ -106,27 +101,20 @@ class AuthService {
     let permissionSlugs = [];
 
     if (roleId) {
-      const roleDoc = await db.collection("roles").doc(roleId).get();
-      if (roleDoc.exists) {
-        roleName = roleDoc.data().name;
-      }
+      const [roles] = await db.execute("SELECT name FROM roles WHERE id = ?", [
+        roleId,
+      ]);
+      if (roles.length > 0) {
+        roleName = roles[0].name;
 
-      const rpSnapshot = await db
-        .collection("role_permissions")
-        .where("role_id", "==", roleId)
-        .get();
-      if (!rpSnapshot.empty) {
-        const permissionIds = rpSnapshot.docs.map(
-          (doc) => doc.data().permission_id,
+        const [permissions] = await db.execute(
+          `SELECT p.slug 
+           FROM role_permissions rp 
+           JOIN permissions p ON rp.permission_id = p.id 
+           WHERE rp.role_id = ?`,
+          [roleId],
         );
-        if (permissionIds.length > 0) {
-          const pSnapshot = await db.collection("permissions").get();
-          pSnapshot.forEach((doc) => {
-            if (permissionIds.includes(doc.id)) {
-              permissionSlugs.push(doc.data().slug);
-            }
-          });
-        }
+        permissionSlugs = permissions.map((p) => p.slug);
       }
     }
 
@@ -135,26 +123,29 @@ class AuthService {
 
   /**
    * Get current user profile.
-   * @param {string} userId
+   * @param {number|string} userId
    * @returns {Promise<Object>} User profile
    */
   static async getMe(userId) {
-    const userDoc = await db.collection("system_users").doc(userId).get();
-    if (!userDoc.exists) {
+    const [users] = await db.execute(
+      "SELECT * FROM system_users WHERE id = ?",
+      [userId],
+    );
+    if (users.length === 0) {
       const error = new Error("User not found");
       error.status = 404;
       throw error;
     }
 
-    const userData = userDoc.data();
+    const userData = users[0];
     const role = await this.getRoleDetails(userData.role_id);
 
     return {
-      id: userDoc.id,
+      id: String(userData.id),
       name: userData.name,
       email: userData.email,
       role: role.name,
-      role_id: userData.role_id,
+      role_id: String(userData.role_id),
       specialization: userData.specialization || null,
       permissions: role.permissions,
     };

@@ -5,58 +5,51 @@ const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || "http://localhost:5002";
 
 /**
  * ComplaintService
- * Handles all business logic and data access for Complaints.
+ * Handles all business logic and data access for Complaints using MySQL.
  */
 class ComplaintService {
   /**
    * Get all complaints with enriched user and bus details.
-   * @param {string} agentId Optional filter for assigned agent
-   * @returns {Promise<Array>} List of enriched complaints
    */
   static async getAllComplaints(agentId = null, passengerId = null) {
-    let query = db.collection("complaints");
+    let query = `
+      SELECT c.*,
+             u.name as user_name,
+             b.license_plate, b.bus_number,
+             r.route_number, r.route_name
+      FROM complaints c
+      LEFT JOIN system_users u ON c.passengerId = u.id
+      LEFT JOIN buses b ON c.busId = b.id
+      LEFT JOIN routes r ON c.routeId = r.id
+    `;
+    const params = [];
 
     if (agentId) {
-      query = query.where("assignedAgentId", "==", agentId);
+      query += " WHERE c.assignedAgentId = ?";
+      params.push(agentId);
     } else if (passengerId) {
-      query = query.where("passengerId", "==", passengerId);
+      query += " WHERE c.passengerId = ?";
+      params.push(passengerId);
     }
 
-    query = query.orderBy("created_at", "desc");
+    query += " ORDER BY c.created_at DESC";
 
-    const snapshot = await query.get();
-    const complaints = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    const [complaints] = await db.execute(query, params);
+
+    // Serialize integer IDs as strings so the frontend's .substring()/.toLowerCase()
+    // and === comparisons work (MySQL returns numbers; Firebase used string doc IDs)
+    return complaints.map((c) => ({
+      ...c,
+      id: String(c.id),
+      busId: c.busId != null ? String(c.busId) : null,
+      routeId: c.routeId != null ? String(c.routeId) : null,
+      assignedAgentId:
+        c.assignedAgentId != null ? String(c.assignedAgentId) : null,
+      busLocationAtTime:
+        typeof c.busLocationAtTime === "string"
+          ? JSON.parse(c.busLocationAtTime)
+          : c.busLocationAtTime,
     }));
-
-    if (complaints.length > 0) {
-      const userSnapshot = await db.collection("system_users").get();
-      const busSnapshot = await db.collection("buses").get();
-      const routeSnapshot = await db.collection("routes").get();
-
-      const userMap = {};
-      userSnapshot.forEach((doc) => (userMap[doc.id] = doc.data()));
-      const busMap = {};
-      busSnapshot.forEach((doc) => (busMap[doc.id] = doc.data()));
-      const routeMap = {};
-      routeSnapshot.forEach((doc) => (routeMap[doc.id] = doc.data()));
-
-      complaints.forEach((c) => {
-        if (c.user_id && userMap[c.user_id])
-          c.user_name = userMap[c.user_id].name;
-        if (c.bus_id && busMap[c.bus_id]) {
-          c.license_plate = busMap[c.bus_id].license_plate;
-          c.bus_number = busMap[c.bus_id].bus_number;
-          const routeId = c.routeId || busMap[c.bus_id].current_route_id;
-          if (routeId && routeMap[routeId]) {
-            c.route_number = routeMap[routeId].route_number;
-            c.route_name = routeMap[routeId].route_name;
-          }
-        }
-      });
-    }
-    return complaints;
   }
 
   /**
@@ -66,56 +59,57 @@ class ComplaintService {
     const { passengerId, busId, complaintText, tripId } = data;
 
     // 1. Fetch Bus metadata
-    const busDoc = await db.collection("buses").doc(busId).get();
-    if (!busDoc.exists) {
+    const [buses] = await db.execute("SELECT * FROM buses WHERE id = ?", [
+      busId,
+    ]);
+    if (buses.length === 0) {
       throw new Error("Bus not found");
     }
-    const busData = busDoc.data();
+    const busData = buses[0];
 
     // 2. Fetch Route metadata
     const routeId = busData.current_route_id;
     let routeData = null;
     if (routeId) {
-      const routeDoc = await db.collection("routes").doc(routeId).get();
-      if (routeDoc.exists) {
-        routeData = routeDoc.data();
-      }
+      const [routes] = await db.execute("SELECT * FROM routes WHERE id = ?", [
+        routeId,
+      ]);
+      if (routes.length > 0) routeData = routes[0];
     }
 
-    // 3. Simulated Telemetry Logic (since real-time telemetry service is not yet implemented)
-    // In a real system, we would fetch this from a telemetry database/service using busId and timestamp
-    const busSpeedAtTime = Math.floor(Math.random() * (85 - 20) + 20); // Random speed between 20 and 85
+    // 3. Simulated Telemetry Logic
+    const busSpeedAtTime = Math.floor(Math.random() * (85 - 20) + 20);
     const busLocationAtTime = {
       latitude: routeData?.start_lat || 6.9271,
       longitude: routeData?.start_lng || 79.8612,
     };
 
-    const newComplaint = {
-      passengerId: passengerId || "anonymous",
-      busId,
-      driverId: busData.driver_id || "unknown", // Assuming bus has a driver_id
-      routeId: routeId || "unknown",
-      tripId: tripId || "unknown",
-      complaintText,
-      complaintCategory: "Pending Classification", // Will be updated by NLP service
-      timestamp: new Date(),
-      busSpeedAtTime,
-      busLocationAtTime,
-      status: "Pending",
-      created_at: new Date(),
-    };
+    const [insertResult] = await db.execute(
+      `INSERT INTO complaints 
+       (passengerId, busId, driverId, routeId, tripId, complaintText, complaintCategory, timestamp, busSpeedAtTime, busLocationAtTime, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, 'Pending', NOW())`,
+      [
+        passengerId || "anonymous",
+        busId,
+        busData.driver_id || "unknown",
+        routeId || null,
+        tripId || "unknown",
+        complaintText,
+        "Pending Classification",
+        busSpeedAtTime,
+        JSON.stringify(busLocationAtTime),
+      ],
+    );
 
-    const docRef = await db.collection("complaints").add(newComplaint);
+    const complaintId = insertResult.insertId;
 
-    // 4. Asynchronous Categorization and Validation
+    // 4. Asynchronous NLP Categorization
     try {
       const nlpResponse = await axios.post(`${NLP_SERVICE_URL}/predict`, {
         complaint_text: complaintText,
       });
-
       const predictedCategory = nlpResponse.data.predicted_category;
 
-      // 5. Validation based on category and telemetry
       let validationResult = {
         verified: false,
         reason: "N/A",
@@ -135,50 +129,61 @@ class ComplaintService {
 
       const updates = {
         complaintCategory: predictedCategory,
-        confidenceScore: 1.0, // Pickle-based simple version doesn't return confidence yet
+        confidenceScore: 1.0,
         evidence: validationResult.reason,
         status:
           validationResult.new_status === "Pending"
             ? "Pending"
             : validationResult.new_status,
+        assignedAgentId: null,
+        assignedAgentName: null,
       };
 
-      // 6. Automatic Agent Assignment
+      // 5. Automatic Agent Assignment
       try {
-        const agentSnap = await db
-          .collection("system_users")
-          .where("role_id", "==", "3") // Role 3 is Agent
-          .where("specialization", "==", predictedCategory)
-          .limit(1)
-          .get();
-
-        if (!agentSnap.empty) {
-          updates.assignedAgentId = agentSnap.docs[0].id;
-          updates.assignedAgentName = agentSnap.docs[0].data().name;
+        const [agents] = await db.execute(
+          `SELECT id, name FROM system_users WHERE role_id = 3 AND specialization = ? LIMIT 1`,
+          [predictedCategory],
+        );
+        if (agents.length > 0) {
+          updates.assignedAgentId = agents[0].id;
+          updates.assignedAgentName = agents[0].name;
         } else {
-          // Fallback to a general agent if specific one not found
-          const generalAgentSnap = await db
-            .collection("system_users")
-            .where("role_id", "==", "3")
-            .where("specialization", "==", "Other")
-            .limit(1)
-            .get();
-          if (!generalAgentSnap.empty) {
-            updates.assignedAgentId = generalAgentSnap.docs[0].id;
-            updates.assignedAgentName = generalAgentSnap.docs[0].data().name;
+          const [generalAgents] = await db.execute(
+            `SELECT id, name FROM system_users WHERE role_id = 3 AND specialization = 'Other' LIMIT 1`,
+          );
+          if (generalAgents.length > 0) {
+            updates.assignedAgentId = generalAgents[0].id;
+            updates.assignedAgentName = generalAgents[0].name;
           }
         }
       } catch (assignError) {
         console.error("Agent Assignment Error:", assignError.message);
       }
 
-      await db.collection("complaints").doc(docRef.id).update(updates);
+      await db.execute(
+        `UPDATE complaints SET complaintCategory = ?, confidenceScore = ?, evidence = ?, status = ?, assignedAgentId = ?, assignedAgentName = ? WHERE id = ?`,
+        [
+          updates.complaintCategory,
+          updates.confidenceScore,
+          updates.evidence,
+          updates.status,
+          updates.assignedAgentId,
+          updates.assignedAgentName,
+          complaintId,
+        ],
+      );
 
-      return { id: docRef.id, ...newComplaint, ...updates };
+      return {
+        id: String(complaintId),
+        passengerId,
+        busId,
+        complaintText,
+        ...updates,
+      };
     } catch (error) {
       console.error("NLP Service Error:", error.message);
-      // Fallback if NLP service is down
-      return { id: docRef.id, ...newComplaint };
+      return { id: String(complaintId), passengerId, busId, complaintText };
     }
   }
 
@@ -186,47 +191,39 @@ class ComplaintService {
    * Update complaint status with optional resolution message.
    */
   static async updateStatus(id, status, resolutionMessage = null) {
-    const updates = {
-      status,
-      updated_at: new Date(),
-    };
-
     if (status.toLowerCase() === "resolved" && resolutionMessage) {
-      updates.resolutionMessage = resolutionMessage;
-      updates.resolvedAt = new Date();
+      await db.execute(
+        `UPDATE complaints SET status = ?, resolutionMessage = ?, resolvedAt = NOW(), updated_at = NOW() WHERE id = ?`,
+        [status, resolutionMessage, id],
+      );
+    } else {
+      await db.execute(
+        `UPDATE complaints SET status = ?, updated_at = NOW() WHERE id = ?`,
+        [status, id],
+      );
     }
-
-    await db.collection("complaints").doc(id).update(updates);
-    return { id, ...updates };
+    return { id: String(id), status, resolutionMessage };
   }
 
   /**
    * Update resolution feedback (Like/Dislike).
    */
   static async updateFeedback(id, feedback) {
-    const updates = {
-      resolutionFeedback: feedback,
-      feedback_at: new Date(),
-    };
-
-    await db.collection("complaints").doc(id).update(updates);
-    return { id, ...updates };
+    await db.execute(
+      `UPDATE complaints SET resolutionFeedback = ?, feedback_at = NOW() WHERE id = ?`,
+      [feedback, id],
+    );
+    return { id: String(id), resolutionFeedback: feedback };
   }
 
   /**
    * Get statistics on complaints categories.
    */
   static async getStats() {
-    const snapshot = await db.collection("complaints").get();
-    const statsMap = {};
-    snapshot.forEach((doc) => {
-      const category = doc.data().category;
-      statsMap[category] = (statsMap[category] || 0) + 1;
-    });
-    return Object.entries(statsMap).map(([category, count]) => ({
-      category,
-      count,
-    }));
+    const [rows] = await db.execute(
+      `SELECT complaintCategory as category, COUNT(*) as count FROM complaints GROUP BY complaintCategory`,
+    );
+    return rows;
   }
 }
 

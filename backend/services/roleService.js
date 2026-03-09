@@ -2,35 +2,29 @@ const db = require("../config/db");
 
 /**
  * RoleService
- * Handles roles and their associations with permissions.
+ * Handles roles and their associations with permissions using MySQL.
  */
 class RoleService {
   /**
    * Get all roles and their permissions.
    */
   static async getAllRoles() {
-    const snapshot = await db.collection("roles").get();
-    const roles = [];
-    for (const doc of snapshot.docs) {
-      const role = { id: doc.id, ...doc.data() };
-      const rpSnapshot = await db
-        .collection("role_permissions")
-        .where("role_id", "==", doc.id)
-        .get();
-      const permissionIds = rpSnapshot.docs.map(
-        (rpDoc) => rpDoc.data().permission_id
-      );
+    const [roles] = await db.execute("SELECT * FROM roles");
 
-      role.permissions = [];
-      if (permissionIds.length > 0) {
-        const pSnapshot = await db.collection("permissions").get();
-        pSnapshot.forEach((pDoc) => {
-          if (permissionIds.includes(pDoc.id)) {
-            role.permissions.push({ id: pDoc.id, ...pDoc.data() });
-          }
-        });
-      }
-      roles.push(role);
+    for (const role of roles) {
+      const [permissions] = await db.execute(
+        `SELECT p.* 
+         FROM role_permissions rp 
+         JOIN permissions p ON rp.permission_id = p.id 
+         WHERE rp.role_id = ?`,
+        [role.id],
+      );
+      // Serialize ids as strings so the frontend's .replace() and .includes() work correctly
+      role.id = String(role.id);
+      role.permissions = permissions.map((p) => ({
+        ...p,
+        id: String(p.id),
+      }));
     }
     return roles;
   }
@@ -40,19 +34,34 @@ class RoleService {
    */
   static async createRole(data) {
     const { name, description, permissions } = data;
-    const newRole = { name, description, created_at: new Date() };
-    const docRef = await db.collection("roles").add(newRole);
-    const roleId = docRef.id;
 
-    if (permissions && permissions.length > 0) {
-      const batch = db.batch();
-      permissions.forEach((permId) => {
-        const rpRef = db.collection("role_permissions").doc();
-        batch.set(rpRef, { role_id: roleId, permission_id: permId });
-      });
-      await batch.commit();
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      const [result] = await connection.execute(
+        "INSERT INTO roles (name, description, created_at) VALUES (?, ?, NOW())",
+        [name, description || ""],
+      );
+      const roleId = result.insertId;
+
+      if (permissions && permissions.length > 0) {
+        for (const permId of permissions) {
+          await connection.execute(
+            "INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)",
+            [roleId, Number(permId)],
+          );
+        }
+      }
+
+      await connection.commit();
+      return { id: roleId, name, description };
+    } catch (e) {
+      await connection.rollback();
+      throw e;
+    } finally {
+      connection.release();
     }
-    return { id: roleId, ...newRole };
   }
 
   /**
@@ -60,45 +69,54 @@ class RoleService {
    */
   static async updateRole(id, data) {
     const { name, description, permissions } = data;
-    await db.collection("roles").doc(id).update({ name, description });
 
-    const rpSnapshot = await db
-      .collection("role_permissions")
-      .where("role_id", "==", id)
-      .get();
-    const batch = db.batch();
-    rpSnapshot.forEach((doc) => batch.delete(doc.ref));
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    if (permissions && permissions.length > 0) {
-      permissions.forEach((permId) => {
-        const rpRef = db.collection("role_permissions").doc();
-        batch.set(rpRef, { role_id: id, permission_id: permId });
-      });
+      await connection.execute(
+        "UPDATE roles SET name = ?, description = ? WHERE id = ?",
+        [name, description || "", id],
+      );
+
+      await connection.execute(
+        "DELETE FROM role_permissions WHERE role_id = ?",
+        [id],
+      );
+
+      if (permissions && permissions.length > 0) {
+        for (const permId of permissions) {
+          await connection.execute(
+            "INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)",
+            [id, Number(permId)],
+          );
+        }
+      }
+
+      await connection.commit();
+      return { id, name, description };
+    } catch (e) {
+      await connection.rollback();
+      throw e;
+    } finally {
+      connection.release();
     }
-    await batch.commit();
-    return { id, name, description };
   }
 
   /**
    * Delete a role and related permission associations.
    */
   static async deleteRole(id) {
-    await db.collection("roles").doc(id).delete();
-    const rpSnapshot = await db
-      .collection("role_permissions")
-      .where("role_id", "==", id)
-      .get();
-    const batch = db.batch();
-    rpSnapshot.forEach((doc) => batch.delete(doc.ref));
-    await batch.commit();
+    await db.execute("DELETE FROM roles WHERE id = ?", [id]);
   }
 
   /**
    * Get all master permissions.
    */
   static async getAllPermissions() {
-    const snapshot = await db.collection("permissions").get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const [permissions] = await db.execute("SELECT * FROM permissions");
+    // Serialize id as string to match what the frontend stores in formData.permissions[]
+    return permissions.map((p) => ({ ...p, id: String(p.id) }));
   }
 }
 

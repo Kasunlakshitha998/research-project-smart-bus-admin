@@ -269,10 +269,19 @@ const PassengerPrediction = () => {
   const handleApplyBulkAssignments = async () => {
     setAssignmentLoading(true);
     try {
-      const finalAssignments = allocations.map((route) => ({
-        routeId: route.id,
-        count: overrides[route.id] ?? route.needed_buses,
-      }));
+      const finalAssignments = allocations.map((route) => {
+        const currentManualGap =
+          route.managerOverride !== null
+            ? Math.max(0, route.managerOverride - route.currentBuses)
+            : null;
+        const activeGap =
+          overrides[route.routeId] ?? currentManualGap ?? route.gap;
+
+        return {
+          routeId: route.routeId,
+          count: activeGap,
+        };
+      });
 
       await predictionService.applyBulkAssignments(finalAssignments);
       toast.success("Bus assignments applied successfully!");
@@ -311,6 +320,8 @@ const PassengerPrediction = () => {
     const startIndex = (busPage - 1) * busesPerPage;
     return buses.slice(startIndex, startIndex + busesPerPage);
   }, [buses, busPage, busesPerPage]);
+
+  console.log(paginatedBuses);
 
   if (loading && !chartData.length && !error) return <Loading />;
 
@@ -1046,9 +1057,13 @@ const PassengerPrediction = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {bus.current_route_id ? (
+                      {bus.current_route_id &&
+                      bus.current_route_id !== "0" &&
+                      bus.current_route_id !== 0 ? (
                         <div className="flex items-center text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 w-fit">
-                          Route {bus.current_route_id}
+                          Route{" "}
+                          {routes.find((r) => r.id == bus.current_route_id)
+                            ?.route_number || bus.current_route_id}
                         </div>
                       ) : (
                         <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
@@ -1091,8 +1106,10 @@ const PassengerPrediction = () => {
                 Assignment Preview
               </h3>
               <p className="text-blue-100 font-medium">
-                Route {assigningRouteId}: AI has found{" "}
-                {previewData.buses.length} suitable vehicles.
+                Route{" "}
+                {routes.find((r) => r.id == assigningRouteId)?.route_number ||
+                  assigningRouteId}
+                : AI has found {previewData.buses.length} suitable vehicles.
               </p>
             </div>
 
@@ -1155,9 +1172,11 @@ const PassengerPrediction = () => {
                     <div className="h-5 w-5 text-orange-500 mt-0.5">⚠️</div>
                     <p className="text-xs text-orange-800 font-bold leading-relaxed">
                       Limited resources: AI found {previewData.buses.length}{" "}
-                      buses, but Route {assigningRouteId} needs more units. Only{" "}
-                      {previewData.availableCount} buses are currently idle in
-                      the fleet.
+                      buses, but Route{" "}
+                      {routes.find((r) => r.id == assigningRouteId)
+                        ?.route_number || assigningRouteId}{" "}
+                      needs more units. Only {previewData.availableCount} buses
+                      are currently idle in the fleet.
                     </p>
                   </div>
                 )}

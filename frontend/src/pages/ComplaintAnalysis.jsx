@@ -39,7 +39,7 @@ import "leaflet/dist/leaflet.css";
 import complaintService from "../services/complaintService";
 
 const formatDate = (dateValue) => {
-  if (!dateValue) return "Date N/A";
+  if (!dateValue) return null;
 
   // Handle Firestore Timestamp objects (_seconds, _nanoseconds)
   if (typeof dateValue === "object" && dateValue._seconds) {
@@ -53,7 +53,20 @@ const formatDate = (dateValue) => {
 
   // Fallback for standard Date or ISO string
   const date = new Date(dateValue);
-  return isNaN(date.getTime()) ? "Invalid Date" : date;
+  return isNaN(date.getTime()) ? null : date;
+};
+
+// Safe wrapper — always returns a displayable string
+const formatDateStr = (dateValue, options) => {
+  const d = formatDate(dateValue);
+  if (!d) return "N/A";
+  return options ? d.toLocaleString("en-US", options) : d.toLocaleString();
+};
+
+const formatTimeStr = (dateValue) => {
+  const d = formatDate(dateValue);
+  if (!d) return "--:--";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
 // Custom Marker for Context Map
@@ -253,7 +266,7 @@ const ComplaintAnalysis = () => {
           c.complaintCategory
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
-          c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          String(c.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
           c.complaintText?.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
     [complaints, searchQuery],
@@ -383,16 +396,10 @@ const ComplaintAnalysis = () => {
                         : "bg-slate-100 text-slate-500",
                     )}
                   >
-                    {c.id.substring(0, 8)}
+                    {String(c.id).substring(0, 8)}
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">
-                    {formatDate(c.created_at || c.timestamp).toLocaleTimeString(
-                      [],
-                      {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      },
-                    )}
+                    {formatTimeStr(c.created_at || c.timestamp)}
                   </span>
                 </div>
                 <h3 className="font-bold text-slate-900 text-xs mb-1 group-hover:text-blue-700 transition-colors uppercase tracking-tight">
@@ -535,15 +542,16 @@ const ComplaintAnalysis = () => {
                             Filed On
                           </p>
                           <p className="text-xs font-black text-slate-600 uppercase tracking-tighter">
-                            {formatDate(
+                            {formatDateStr(
                               selectedComplaint.created_at ||
                                 selectedComplaint.timestamp,
-                            ).toLocaleString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                              {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
                           </p>
                         </div>
                       </div>
@@ -597,9 +605,7 @@ const ComplaintAnalysis = () => {
                               icon: CheckCircle,
                               color: "text-emerald-500",
                               bg: "bg-emerald-50",
-                              sub: `Resolved on ${formatDate(
-                                selectedComplaint.resolvedAt,
-                              ).toLocaleDateString()}`,
+                              sub: `Resolved on ${formatDateStr(selectedComplaint.resolvedAt)}`,
                             },
                           ]
                         : []),
