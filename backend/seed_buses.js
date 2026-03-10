@@ -17,7 +17,7 @@ async function seedMoreBuses() {
   console.log("Seeding 30 buses into MySQL...");
 
   const values = [];
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 34; i <= 63; i++) {
     const license_plate = `NB-${1000 + i}`;
     const bus_number = `BUS_${i}`;
     const capacity = Math.random() > 0.5 ? 52 : 32;

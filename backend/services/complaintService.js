@@ -56,7 +56,7 @@ class ComplaintService {
    * Create a new complaint with metadata and telemetry validation.
    */
   static async createComplaint(data) {
-    const { passengerId, busId, complaintText, tripId } = data;
+    const { passengerId, busId, complaintText, tripId, incidentTime } = data;
 
     // 1. Fetch Bus metadata
     const [buses] = await db.execute("SELECT * FROM buses WHERE id = ?", [
@@ -87,7 +87,7 @@ class ComplaintService {
     const [insertResult] = await db.execute(
       `INSERT INTO complaints 
        (passengerId, busId, driverId, routeId, tripId, complaintText, complaintCategory, timestamp, busSpeedAtTime, busLocationAtTime, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, 'Pending', NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
       [
         passengerId || "anonymous",
         busId,
@@ -96,6 +96,7 @@ class ComplaintService {
         tripId || "unknown",
         complaintText,
         "Pending Classification",
+        incidentTime || new Date(),
         busSpeedAtTime,
         JSON.stringify(busLocationAtTime),
       ],

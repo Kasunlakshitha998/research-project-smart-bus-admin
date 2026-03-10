@@ -31,6 +31,8 @@ import {
   Activity,
   Info,
   X,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
@@ -238,7 +240,18 @@ const ComplaintAnalysis = () => {
       total: complaints.length,
       pending: complaints.filter((c) => c.status === "pending").length,
       resolved: complaints.filter((c) => c.status === "resolved").length,
-      sentimentScore: 68, // Mock score
+      liked: complaints.filter((c) => c.resolutionFeedback === "Liked").length,
+      disliked: complaints.filter((c) => c.resolutionFeedback === "Disliked")
+        .length,
+      sentimentScore:
+        complaints.filter((c) => c.resolutionFeedback).length > 0
+          ? Math.round(
+              (complaints.filter((c) => c.resolutionFeedback === "Liked")
+                .length /
+                complaints.filter((c) => c.resolutionFeedback).length) *
+                100,
+            )
+          : 0,
       byCategory: [
         { category: "Behavior", count: 12 },
         { category: "Cleanliness", count: 8 },
@@ -434,9 +447,17 @@ const ComplaintAnalysis = () => {
                       {c.status}
                     </span>
                   </div>
-                  {selectedComplaint?.id === c.id && (
-                    <ArrowRight size={14} className="text-blue-500" />
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {c.resolutionFeedback === "Liked" && (
+                      <ThumbsUp size={12} className="text-green-500" />
+                    )}
+                    {c.resolutionFeedback === "Disliked" && (
+                      <ThumbsDown size={12} className="text-red-500" />
+                    )}
+                    {selectedComplaint?.id === c.id && (
+                      <ArrowRight size={14} className="text-blue-500" />
+                    )}
+                  </div>
                 </div>
               </button>
             ))
@@ -566,8 +587,7 @@ const ComplaintAnalysis = () => {
                     {[
                       {
                         label: "Assigned Driver",
-                        value:
-                          selectedComplaint.driver_name || "Kumarasiri Perera",
+                        value: selectedComplaint.driver_name || "Kumara Perera",
                         icon: User,
                         color: "text-blue-500",
                         bg: "bg-blue-50",
@@ -609,6 +629,30 @@ const ComplaintAnalysis = () => {
                             },
                           ]
                         : []),
+                      ...(selectedComplaint.resolutionFeedback
+                        ? [
+                            {
+                              label: "Passenger Satisfaction",
+                              value:
+                                selectedComplaint.resolutionFeedback === "Liked"
+                                  ? "Satisfied (Liked)"
+                                  : "Unsatisfied (Disliked)",
+                              icon:
+                                selectedComplaint.resolutionFeedback === "Liked"
+                                  ? ThumbsUp
+                                  : ThumbsDown,
+                              color:
+                                selectedComplaint.resolutionFeedback === "Liked"
+                                  ? "text-green-500"
+                                  : "text-red-500",
+                              bg:
+                                selectedComplaint.resolutionFeedback === "Liked"
+                                  ? "bg-green-50"
+                                  : "bg-red-50",
+                              sub: `Feedback received on ${formatDateStr(selectedComplaint.feedback_at)}`,
+                            },
+                          ]
+                        : []),
                     ].map((t, i) => (
                       <div
                         key={i}
@@ -624,7 +668,7 @@ const ComplaintAnalysis = () => {
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
                             {t.label}
                           </p>
-                          <p className="text-lg font-black text-slate-900 leading-none mb-1 uppercase tracking-tighter">
+                          <p className="text-[12px] font-black text-slate-900 leading-none mb-1 uppercase tracking-tighter">
                             {t.value}
                           </p>
                           {t.sub && (

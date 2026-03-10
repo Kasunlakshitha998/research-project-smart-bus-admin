@@ -23,13 +23,13 @@ class RouteService {
     const distance = parseFloat(routeData.distance) || 0;
     const [result] = await db.execute(
       `INSERT INTO routes 
-      (route_number, route_name, start_lat, start_lng, estimated_time, distance, start_time, end_time, created_at) 
+      (route_number, route_name, start_point, end_point, estimated_time, distance, start_time, end_time, created_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         routeData.route_number || "",
         routeData.route_name || "",
-        routeData.start_lat || null,
-        routeData.start_lng || null,
+        routeData.start_point || null,
+        routeData.end_point || null,
         routeData.estimated_time || null,
         distance,
         routeData.start_time || null,
@@ -47,13 +47,13 @@ class RouteService {
     const distance = parseFloat(updateData.distance) || 0;
     await db.execute(
       `UPDATE routes 
-       SET route_number = ?, route_name = ?, start_lat = ?, start_lng = ?, estimated_time = ?, distance = ?, start_time = ?, end_time = ?
+       SET route_number = ?, route_name = ?, start_point = ?, end_point = ?, estimated_time = ?, distance = ?, start_time = ?, end_time = ?
        WHERE id = ?`,
       [
         updateData.route_number || "",
         updateData.route_name || "",
-        updateData.start_lat || null,
-        updateData.start_lng || null,
+        updateData.start_point || null,
+        updateData.end_point || null,
         updateData.estimated_time || null,
         distance,
         updateData.start_time || null,
