@@ -240,14 +240,24 @@ const ComplaintAnalysis = () => {
       total: complaints.length,
       pending: complaints.filter((c) => c.status === "pending").length,
       resolved: complaints.filter((c) => c.status === "resolved").length,
-      liked: complaints.filter((c) => c.resolutionFeedback === "Liked").length,
-      disliked: complaints.filter((c) => c.resolutionFeedback === "Disliked")
-        .length,
+      liked: complaints.filter(
+        (c) =>
+          c.resolutionFeedback?.toLowerCase() === "liked" ||
+          c.resolutionFeedback?.toLowerCase() === "like",
+      ).length,
+      disliked: complaints.filter(
+        (c) =>
+          c.resolutionFeedback?.toLowerCase() === "disliked" ||
+          c.resolutionFeedback?.toLowerCase() === "dislike",
+      ).length,
       sentimentScore:
         complaints.filter((c) => c.resolutionFeedback).length > 0
           ? Math.round(
-              (complaints.filter((c) => c.resolutionFeedback === "Liked")
-                .length /
+              (complaints.filter(
+                (c) =>
+                  c.resolutionFeedback?.toLowerCase() === "liked" ||
+                  c.resolutionFeedback?.toLowerCase() === "like",
+              ).length /
                 complaints.filter((c) => c.resolutionFeedback).length) *
                 100,
             )
@@ -448,10 +458,12 @@ const ComplaintAnalysis = () => {
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {c.resolutionFeedback === "Liked" && (
+                    {(c.resolutionFeedback?.toLowerCase() === "liked" ||
+                      c.resolutionFeedback?.toLowerCase() === "like") && (
                       <ThumbsUp size={12} className="text-green-500" />
                     )}
-                    {c.resolutionFeedback === "Disliked" && (
+                    {(c.resolutionFeedback?.toLowerCase() === "disliked" ||
+                      c.resolutionFeedback?.toLowerCase() === "dislike") && (
                       <ThumbsDown size={12} className="text-red-500" />
                     )}
                     {selectedComplaint?.id === c.id && (
@@ -634,19 +646,31 @@ const ComplaintAnalysis = () => {
                             {
                               label: "Passenger Satisfaction",
                               value:
-                                selectedComplaint.resolutionFeedback === "Liked"
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "liked" ||
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "like"
                                   ? "Satisfied (Liked)"
                                   : "Unsatisfied (Disliked)",
                               icon:
-                                selectedComplaint.resolutionFeedback === "Liked"
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "liked" ||
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "like"
                                   ? ThumbsUp
                                   : ThumbsDown,
                               color:
-                                selectedComplaint.resolutionFeedback === "Liked"
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "liked" ||
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "like"
                                   ? "text-green-500"
                                   : "text-red-500",
                               bg:
-                                selectedComplaint.resolutionFeedback === "Liked"
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "liked" ||
+                                selectedComplaint.resolutionFeedback?.toLowerCase() ===
+                                  "like"
                                   ? "bg-green-50"
                                   : "bg-red-50",
                               sub: `Feedback received on ${formatDateStr(selectedComplaint.feedback_at)}`,
