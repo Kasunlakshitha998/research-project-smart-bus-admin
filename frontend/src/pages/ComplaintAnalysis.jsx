@@ -1,20 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-} from "recharts";
-import {
   AlertCircle,
   CheckCircle,
   Clock,

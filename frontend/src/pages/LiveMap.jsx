@@ -1,6 +1,8 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useState, useMemo, useEffect } from "react";
+import { collection, onSnapshot, query } from "firebase/firestore";
+import { db } from "../config/firebase";
 import {
   Bus,
   Navigation,
@@ -10,6 +12,9 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
+  CloudSun,
+  Users,
+  RotateCw,
 } from "lucide-react";
 import clsx from "clsx";
 import "leaflet/dist/leaflet.css";
@@ -64,95 +69,92 @@ const MapRecenter = ({ center }) => {
 const LiveMap = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBus, setSelectedBus] = useState(null);
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [buses] = useState([
-    {
-      id: "B001",
-      route: "138",
-      busNo: "WP NB-5432",
-      lat: 6.9271,
-      lng: 79.8612,
-      status: "On Time",
-      lastStop: "Colombo Fort",
-      speed: "32 km/h",
-      capacity: "85%",
-    },
-    {
-      id: "B002",
-      route: "177",
-      busNo: "WP NB-8721",
-      lat: 6.9147,
-      lng: 79.9733,
-      status: "Delayed",
-      lastStop: "Kothalawala",
-      speed: "12 km/h",
-      capacity: "40%",
-    },
-    {
-      id: "B003",
-      route: "120",
-      busNo: "WP NA-3321",
-      lat: 6.84,
-      lng: 79.96,
-      status: "On Time",
-      lastStop: "Piliyandala",
-      speed: "45 km/h",
-      capacity: "60%",
-    },
-    {
-      id: "B004",
-      route: "138",
-      busNo: "WP NC-1122",
-      lat: 6.91,
-      lng: 79.88,
-      status: "Maintenance",
-      lastStop: "Nugegoda",
-      speed: "0 km/h",
-      capacity: "0%",
-    },
-    {
-      id: "B005",
-      route: "154",
-      busNo: "WP NB-9988",
-      lat: 6.94,
-      lng: 79.85,
-      status: "On Time",
-      lastStop: "Bambalapitiya",
-      speed: "28 km/h",
-      capacity: "92%",
-    },
-    {
-      id: "B006",
-      route: "17",
-      busNo: "WP NC-5566",
-      lat: 6.9,
-      lng: 79.92,
-      status: "Delayed",
-      lastStop: "Malabe",
-      speed: "8 km/h",
-      capacity: "45%",
-    },
-    {
-      id: "B007",
-      route: "EX-01",
-      busNo: "WP NA-7711",
-      lat: 6.85,
-      lng: 80.0,
-      status: "On Time",
-      lastStop: "Kottawa",
-      speed: "85 km/h",
-      capacity: "70%",
-    },
-  ]);
+  useEffect(() => {
+    let unsubscribe = subscribeToBuses();
+    return () => unsubscribe();
+  }, []);
+
+  const subscribeToBuses = () => {
+    setLoading(true);
+    const busesRef = collection(db, "buses");
+    const q = query(busesRef);
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const loadedBuses = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (
+            data.location &&
+            data.location.latitude &&
+            data.location.longitude
+          ) {
+            loadedBuses.push({
+              id: doc.id,
+              route: data.routeNumber || "N/A",
+              busNo: doc.id,
+              lat: data.location.latitude,
+              lng: data.location.longitude,
+              status: data.status || "On Time",
+              lastStop: data.destination || "Unknown",
+              speed: data.isActive ? "Moving" : "Stopped",
+              capacity:
+                data.totalSeats > 0
+                  ? Math.round((data.passengerCount / data.totalSeats) * 100) +
+                    "%"
+                  : "0%",
+              passengerCount: data.passengerCount || 0,
+              totalSeats: data.totalSeats || 0,
+              from: data.from || "Unknown",
+              weather: data.weather || "N/A",
+              lastUpdated: data.lastUpdated?.toDate
+                ? data.lastUpdated.toDate()
+                : new Date(),
+            });
+          }
+        });
+        setBuses(loadedBuses);
+        setLoading(false);
+        setError(null);
+      },
+      (error) => {
+        console.error("Error fetching buses:", error);
+        if (error.code === "permission-denied") {
+          setError(
+            "Missing or insufficient permissions. Please update your Firestore Rules to allow public read access for 'buses': allow read: if true;",
+          );
+        } else {
+          setError(error.message);
+        }
+        setLoading(false);
+      },
+    );
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // The onSnapshot is already live, but this provides visual feedback and re-runs the subscription
+    const unsubscribe = subscribeToBuses();
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
+    return unsubscribe;
+  };
 
   const filteredBuses = useMemo(
     () =>
       buses.filter(
         (b) =>
           b.route.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          b.busNo.toLowerCase().includes(searchQuery.toLowerCase())
+          b.busNo.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
-    [buses, searchQuery]
+    [buses, searchQuery],
   );
 
   const stats = useMemo(
@@ -162,32 +164,44 @@ const LiveMap = () => {
       delayed: buses.filter((b) => b.status === "Delayed").length,
       maintenance: buses.filter((b) => b.status === "Maintenance").length,
     }),
-    [buses]
+    [buses],
   );
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden font-['Plus_Jakarta_Sans']">
       {/* Sidebar Controls */}
-      <aside className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl z-20">
+      <aside className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-xl z-20 mt-5">
         <div className="p-6 border-b border-gray-100 bg-white">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
-              <Navigation className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-                Fleet Tracking
-              </h1>
-              <div className="flex items-center space-x-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">
-                  Live System
-                </span>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+                <Navigation className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                  Fleet Tracking
+                </h1>
+                <div className="flex items-center space-x-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">
+                    Live System
+                  </span>
+                </div>
               </div>
             </div>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing || loading}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-blue-600 disabled:opacity-50"
+              title="Refresh Data"
+            >
+              <RotateCw
+                className={clsx("h-5 w-5", isRefreshing && "animate-spin")}
+              />
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -218,51 +232,81 @@ const LiveMap = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
-          {filteredBuses.map((bus) => (
-            <button
-              key={bus.id}
-              onClick={() => setSelectedBus(bus)}
-              className={clsx(
-                "w-full p-4 rounded-2xl border transition-all text-left group",
-                selectedBus?.id === bus.id
-                  ? "bg-blue-50 border-blue-200 shadow-md shadow-blue-50"
-                  : "bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm"
-              )}
-            >
-              <div className="flex justify-between items-start mb-2">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="text-sm font-medium text-gray-500">
+                Connecting to Live System...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">
-                    Route {bus.route}
+                  <p className="text-sm font-bold text-red-900 mb-1">
+                    Access Denied
                   </p>
-                  <h3 className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors uppercase">
-                    {bus.busNo}
-                  </h3>
-                </div>
-                <span
-                  className={clsx(
-                    "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                    bus.status === "On Time"
-                      ? "bg-green-100 text-green-700"
-                      : bus.status === "Delayed"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-orange-100 text-orange-700"
-                  )}
-                >
-                  {bus.status}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-gray-500">
-                <div className="flex items-center">
-                  <MapIcon className="h-3 w-3 mr-1 opacity-50" />
-                  <span className="truncate">{bus.lastStop}</span>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Activity className="h-3 w-3 mr-1 opacity-50" />
-                  <span>{bus.speed}</span>
+                  <p className="text-xs text-red-700 leading-relaxed font-medium">
+                    {error}
+                  </p>
                 </div>
               </div>
-            </button>
-          ))}
+            </div>
+          ) : filteredBuses.length === 0 ? (
+            <div className="text-center py-12">
+              <Bus className="mx-auto h-12 w-12 text-gray-200 mb-4" />
+              <p className="text-sm font-medium text-gray-500">
+                No active buses found
+              </p>
+            </div>
+          ) : (
+            filteredBuses.map((bus) => (
+              <button
+                key={bus.id}
+                onClick={() => setSelectedBus(bus)}
+                className={clsx(
+                  "w-full p-4 rounded-2xl border transition-all text-left group",
+                  selectedBus?.id === bus.id
+                    ? "bg-blue-50 border-blue-200 shadow-md shadow-blue-50"
+                    : "bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm",
+                )}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">
+                      Route {bus.route}
+                    </p>
+                    <h3 className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors uppercase">
+                      {bus.busNo}
+                    </h3>
+                  </div>
+                  <span
+                    className={clsx(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                      bus.status === "On Time"
+                        ? "bg-green-100 text-green-700"
+                        : bus.status === "Delayed"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-orange-100 text-orange-700",
+                    )}
+                  >
+                    {bus.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-gray-500">
+                  <div className="flex items-center">
+                    <MapIcon className="h-3 w-3 mr-1 opacity-50" />
+                    <span className="truncate">{bus.lastStop}</span>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <Activity className="h-3 w-3 mr-1 opacity-50" />
+                    <span>{bus.speed}</span>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </aside>
 
@@ -289,7 +333,7 @@ const LiveMap = () => {
               }}
             >
               <Popup className="bus-popup">
-                <div className="p-3 w-48">
+                <div className="p-3 w-56">
                   <div className="flex justify-between items-center mb-3">
                     <div className="h-8 w-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
                       <Bus className="h-5 w-5" />
@@ -300,8 +344,8 @@ const LiveMap = () => {
                         bus.status === "On Time"
                           ? "bg-green-100 text-green-700"
                           : bus.status === "Delayed"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-orange-100 text-orange-700"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-orange-100 text-orange-700",
                       )}
                     >
                       {bus.status}
@@ -310,34 +354,65 @@ const LiveMap = () => {
                   <h3 className="font-bold text-gray-900 leading-tight mb-1 uppercase tracking-tighter">
                     Route {bus.route} - {bus.busNo}
                   </h3>
-                  <div className="space-y-1.5">
+                  <div className="text-[10px] text-gray-500 mb-3 flex items-center gap-1">
+                    <span className="font-bold text-blue-600">{bus.from}</span>
+                    <span>→</span>
+                    <span className="font-bold text-gray-800">
+                      {bus.lastStop}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 bg-gray-50 p-2 rounded-lg border border-gray-100 mb-3">
                     <div className="flex justify-between text-[10px] font-bold">
-                      <span className="text-gray-400 uppercase">Speed</span>
+                      <span className="text-gray-400 uppercase flex items-center gap-1">
+                        <Activity size={10} /> Status
+                      </span>
                       <span className="text-gray-900">{bus.speed}</span>
                     </div>
                     <div className="flex justify-between text-[10px] font-bold">
-                      <span className="text-gray-400 uppercase">
-                        Load Capacity
+                      <span className="text-gray-400 uppercase flex items-center gap-1">
+                        <Users size={10} /> Passengers
                       </span>
-                      <div className="flex items-center">
-                        <div className="w-12 h-1.5 bg-gray-100 rounded-full mr-2 overflow-hidden border border-gray-50">
-                          <div
-                            className="h-full bg-blue-500 rounded-full"
-                            style={{ width: bus.capacity }}
-                          ></div>
-                        </div>
-                        <span className="text-blue-600 font-extrabold">
-                          {bus.capacity}
-                        </span>
+                      <span className="text-gray-900">
+                        {bus.passengerCount} / {bus.totalSeats}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 pt-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-gray-400 uppercase">Load</span>
+                        <span className="text-blue-600">{bus.capacity}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden border border-gray-100">
+                        <div
+                          className={clsx(
+                            "h-full rounded-full transition-all duration-500",
+                            parseInt(bus.capacity) > 80
+                              ? "bg-red-500"
+                              : "bg-blue-500",
+                          )}
+                          style={{ width: bus.capacity }}
+                        ></div>
                       </div>
                     </div>
-                    <div className="flex justify-between text-[10px] font-bold pt-1 border-t border-gray-50">
-                      <span className="text-gray-400 uppercase">Last Stop</span>
-                      <span className="text-gray-900">{bus.lastStop}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200 mt-2">
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-gray-500">
+                      <CloudSun size={12} className="text-orange-400" />
+                      {bus.weather}
+                    </div>
+                    <div className="text-[8px] text-gray-400 font-medium">
+                      Updated{" "}
+                      {new Intl.DateTimeFormat("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(bus.lastUpdated)}
                     </div>
                   </div>
-                  <button className="w-full mt-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase transition-all hover:bg-blue-700 shadow-md shadow-blue-100">
-                    View Analytics
+
+                  <button className="w-full mt-3 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase transition-all hover:bg-blue-700 shadow-md shadow-blue-100 flex items-center justify-center gap-2">
+                    <Activity size={12} />
+                    View Real-time Data
                   </button>
                 </div>
               </Popup>
@@ -362,7 +437,7 @@ const LiveMap = () => {
               <div className="flex items-center space-x-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
                 <span className="text-xs font-bold text-gray-900">
-                  System Secure
+                  {loading ? "Syncing..." : "System Secure"}
                 </span>
               </div>
               <div className="h-4 w-px bg-gray-200" />
