@@ -30,6 +30,10 @@ import busAllocationService from "../services/busAllocationService";
 import busService from "../services/busService";
 import Pagination from "../components/Pagination";
 
+/**
+ * Transforms raw backend data into a format suitable for the Recharts library.
+ * It maps dates to objects containing both actual and predicted passenger counts.
+ */
 const processChartData = (rawData) => {
   if (!rawData) return [];
   const map = new Map();
@@ -99,6 +103,9 @@ const PassengerPrediction = () => {
 
   const { user } = useAuth();
 
+  /**
+   * Fetches all available bus routes from the database.
+   */
   const fetchRoutes = useCallback(async () => {
     try {
       const data = await routeService.getAllRoutes();
@@ -108,6 +115,10 @@ const PassengerPrediction = () => {
     }
   }, []);
 
+  /**
+   * Main data fetching logic for passenger predictions and allocations.
+   * Handles filtering by route, time range (daily/weekly/monthly/custom), and date.
+   */
   const fetchPredictions = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -169,6 +180,9 @@ const PassengerPrediction = () => {
     }
   }, [selectedRoute, timeRange, customRange, allocationDate]);
 
+  /**
+   * Retrieves the current bus fleet status.
+   */
   const fetchBuses = useCallback(async () => {
     setFetchingBuses(true);
     try {
@@ -192,6 +206,9 @@ const PassengerPrediction = () => {
     }
   }, [fetchPredictions, timeRange, customRange, allocationDate]);
 
+  /**
+   * Logic for manual bus assignment: filters for active, idle buses.
+   */
   const openAssignModal = async (routeId) => {
     setAssigningRouteId(routeId);
     setIsAssignModalOpen(true);
@@ -213,6 +230,9 @@ const PassengerPrediction = () => {
     }
   };
 
+  /**
+   * Assigns a single selected bus to a specific route.
+   */
   const handleAssignSingleBus = async (busId) => {
     if (!assigningRouteId) return;
     try {
@@ -224,6 +244,9 @@ const PassengerPrediction = () => {
     }
   };
 
+  /**
+   * Generates a preview of bus assignments for a route based on the 'gap' (needed buses).
+   */
   const handlePreviewAssignment = async (routeId, neededCount) => {
     setPreviewLoading(true);
     setPreviewError(null);
@@ -245,6 +268,9 @@ const PassengerPrediction = () => {
     }
   };
 
+  /**
+   * Confirms and applies the assignments from the preview modal.
+   */
   const handleConfirmAssignment = async () => {
     if (!previewData || !assigningRouteId) return;
     setAssignmentLoading(true);
@@ -266,6 +292,9 @@ const PassengerPrediction = () => {
       setAssignmentLoading(false);
     }
   };
+  /**
+   * Applies bulk assignments across all routes based on AI recommendations and manager overrides.
+   */
   const handleApplyBulkAssignments = async () => {
     setAssignmentLoading(true);
     try {
@@ -296,6 +325,9 @@ const PassengerPrediction = () => {
     }
   };
 
+  /**
+   * Returns Tailwind CSS classes for demand status badges based on prediction levels.
+   */
   const getStatusColor = (status) => {
     switch (status) {
       case "Critically High":
@@ -311,11 +343,13 @@ const PassengerPrediction = () => {
     }
   };
 
+  // Memoized pagination for recommended allocations table
   const paginatedAllocations = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return allocations.slice(startIndex, startIndex + itemsPerPage);
   }, [allocations, currentPage, itemsPerPage]);
 
+  // Memoized pagination for the main bus fleet table
   const paginatedBuses = useMemo(() => {
     const startIndex = (busPage - 1) * busesPerPage;
     return buses.slice(startIndex, startIndex + busesPerPage);
@@ -636,6 +670,7 @@ const PassengerPrediction = () => {
 
                 const finalBusCount = d.currentBuses + activeGap;
 
+                // Calculate utilization percentage based on predicted demand vs total daily capacity of the final fleet plan
                 const totalDailyCapacity = finalBusCount * d.dailyBusCapacity;
                 const utilization =
                   totalDailyCapacity > 0

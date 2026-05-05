@@ -8,6 +8,8 @@ class PredictionService {
     const month = d.getMonth() + 1;
     const dayOfMonth = d.getDate();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6 ? 1 : 0;
+
+    // Calculate temporal features
     const startOfYear = new Date(d.getFullYear(), 0, 1);
     const weekOfYear = Math.ceil(
       ((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7,
@@ -17,6 +19,10 @@ class PredictionService {
 
     const hMap = routeHistoryMap[route.id] || {};
 
+    /**
+     * Helper to retrieve historical passenger counts for a relative number of days back.
+     * @param {number} days - Number of days to look back.
+     */
     const getLag = (days) => {
       const ld = new Date(d);
       ld.setDate(ld.getDate() - days);
@@ -24,8 +30,10 @@ class PredictionService {
       return hMap[ldStr] || 0;
     };
 
+    // Lag features: 1, 2, 3, 7, and 14 days ago
     const lags = [1, 2, 3, 7, 14].map((l) => getLag(l));
 
+    // Calculate rolling mean and standard deviation for the last 7 days
     let sum7 = 0;
     let vals7 = [];
     for (let i = 1; i <= 7; i++) {
@@ -57,6 +65,9 @@ class PredictionService {
     };
   }
 
+  /**
+   * Main method to fetch passenger demand predictions, statistics, and resource recommendations.
+   */
   static async getPredictions(
     routeId,
     range = "daily",
@@ -66,7 +77,7 @@ class PredictionService {
   ) {
     const pythonApiUrl = process.env.PYTHON_API_URL || "http://localhost:5001";
 
-    // 1. Get routes
+    // 1. Fetch Route Information
     let routes = [];
     if (routeId && routeId !== "all") {
       const [rows] = await db.execute("SELECT * FROM routes WHERE id = ?", [
@@ -87,7 +98,8 @@ class PredictionService {
         stats: {},
       };
 
-    // 2. Get bus capacity per route
+    // 2. Aggregate Current Fleet Capacity
+    // Calculates how many active buses are currently assigned to each route and their total passenger capacity.
     const [activebusBuses] = await db.execute(
       "SELECT current_route_id, COUNT(*) as count, SUM(capacity) as total_capacity FROM buses WHERE status = 'active' GROUP BY current_route_id",
     );
@@ -101,7 +113,8 @@ class PredictionService {
       }
     });
 
-    // 3. Historical Data Setup
+    // 3. Historical Data Preparation
+    // Retrieves historical trip data to calculate lags and rolling stats for the prediction engine.
     const today = new Date();
     let lookbackDays = 30;
     if (range === "monthly") lookbackDays = 365;
@@ -133,7 +146,7 @@ class PredictionService {
       }
     });
 
-    // 4. Prediction Date Range Setup
+    // 4. Define Prediction Timeframe
     const predictionDates = [];
     if (range === "custom" && customStartDate && customEndDate) {
       const start = new Date(customStartDate);
@@ -148,6 +161,8 @@ class PredictionService {
       let predictionPoints = 7;
       if (range === "weekly") predictionPoints = 28;
       if (range === "monthly") predictionPoints = 90;
+
+      // Extend range if a target date is further than the standard window
       if (targetDate) {
         const target = new Date(targetDate);
         const diffToTarget = Math.ceil(
@@ -173,7 +188,9 @@ class PredictionService {
         stats: {},
       };
 
-    // 5. Recursive Prediction Loop
+    // 5. Prediction Execution Loop
+    // Iterates through dates, generating features and calling the ML service.
+    // Results are stored back in the map to allow "recursive" lag calculation (using previous predictions as lags).
     const allApiResults = [];
     for (const d of predictionDates) {
       const dStr = d.toISOString().split("T")[0];
@@ -210,12 +227,13 @@ class PredictionService {
         stats: { error: "No prediction data returned." },
       };
 
-    // 6. Aggregate Chart Data
+    // 6. Aggregate results for Data Visualization (Charts)
     const chartData = [];
     let contextDays = 7;
     if (range === "weekly") contextDays = 14;
     if (range === "monthly") contextDays = 30;
 
+    // Add recent historical data for visual context
     for (let i = contextDays; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
@@ -235,6 +253,7 @@ class PredictionService {
     let maxPred = 0;
     let maxPredDate = "";
 
+    // Add predicted data
     predictionDates.forEach((d, i) => {
       const dStr = d.toISOString().split("T")[0];
       let count = 0;
@@ -254,7 +273,7 @@ class PredictionService {
       }
     });
 
-    // Aggregation
+    // Grouping logic for Weekly/Monthly chart aggregation
     let finalChartData = chartData;
     if (range === "monthly") {
       const aggMap = new Map();
@@ -288,7 +307,7 @@ class PredictionService {
       finalChartData = Array.from(aggMap.values());
     }
 
-    // 7. Stats
+    // 7. Calculate Insights and Resource Recommendations
     const avgHistorical =
       historicalDaysCount > 0
         ? totalHistoricalPassengers / historicalDaysCount
@@ -306,12 +325,14 @@ class PredictionService {
       ? peakDateObj.toLocaleDateString("en-US", { weekday: "long" })
       : "-";
 
+    // Select the specific date for the recommendation table (default to today or custom start)
     let tableTargetDate = targetDate ? new Date(targetDate) : new Date();
     if (range === "custom" && customStartDate && !targetDate) {
       const start = new Date(customStartDate);
       if (start > today) tableTargetDate = start;
     }
 
+    // Generate specific predictions for the recommendation report
     const tableFeatures = routes.map((route) =>
       this.getFeaturesForRouteDate(route, tableTargetDate, routeHistoryMap),
     );
@@ -325,6 +346,7 @@ class PredictionService {
       tablePredictionsRaw = tableFeatures.map(() => 0);
     }
 
+    // Map predictions to route resources (Utilization, Needed Buses, Gaps)
     const routePredictions = routes.map((route, index) => {
       const predicted =
         tablePredictionsRaw && tablePredictionsRaw[index]
@@ -332,18 +354,23 @@ class PredictionService {
           : 0;
       const currentBuses = busCountMap[route.id]?.count || 0;
       const currentCapacity = busCountMap[route.id]?.capacity || 0;
+
+      // Calculate capacity utilization percentage
       const utilization =
         currentCapacity > 0
           ? Math.round((predicted / currentCapacity) * 100)
           : predicted > 0
             ? 100
             : 0;
+
+      // Resource requirement formula based on operational hours and trip time
       const estTripTime = parseInt(route.estimated_time) || 45;
       const operationalHours = 12;
       const avgSeatCount = 50;
       const neededBuses = Math.ceil(
         (predicted * estTripTime) / (avgSeatCount * operationalHours * 60),
       );
+
       const gap = currentCapacity - predicted;
       let status = "Sufficient";
       if (utilization > 90) status = "Critically High";
@@ -376,7 +403,7 @@ class PredictionService {
       byRoute: routePredictions,
       routes,
       totalPredicted: Math.round(totalPredictedVol),
-      accuracy: "N/A",
+      accuracy: "N/A", // Accuracy calculation requires comparing with actuals after the date passes
       timestamp: new Date().toISOString(),
       stats: {
         growthRate: growthRate.toFixed(1),
@@ -393,6 +420,7 @@ class PredictionService {
     return response.data.predictions;
   }
 
+  //old assigned bus logic
   static async assignBuses(routeId, count) {
     const [activeBuses] = await db.execute(
       "SELECT id FROM buses WHERE status = 'active' AND (current_route_id IS NULL OR current_route_id = 0)",
